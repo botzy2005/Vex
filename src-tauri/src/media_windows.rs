@@ -15,7 +15,6 @@ use windows::Media::Control::{
 };
 use windows::Storage::Streams::DataReader;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-use windows_future::Async;
 
 const TICKS_PER_MS: i64 = 10_000;
 const MAX_THUMBNAIL_BYTES: u64 = 6 * 1024 * 1024;

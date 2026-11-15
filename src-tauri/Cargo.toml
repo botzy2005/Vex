@@ -17,4 +17,3 @@ islet-core = { path = "../crates/islet-core" }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = ["Media_Control", "Foundation", "Foundation_Collections", "Storage_Streams", "Win32_System_Com"] }
-windows-future = "0.3"
