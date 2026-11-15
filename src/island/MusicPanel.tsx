@@ -29,7 +29,7 @@ export function MusicPanel({
       <div className="empty" data-testid="music-empty">
         <MusicIcon width={28} height={28} />
         <strong>Nothing playing</strong>
-        <span>Play something in Spotify, YouTube Music or a browser tab. Media detection arrives in Milestone 2.</span>
+        <span>Play something in Spotify, YouTube Music, a browser tab or any media player.</span>
       </div>
     );
   }

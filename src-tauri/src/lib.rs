@@ -2,11 +2,16 @@
 //!
 //! Responsibilities in this milestone: create and position the island window,
 //! own the persisted settings, register the global hotkey, provide the tray
-//! menu, and expose the command surface the UI talks to. Media, lyrics
-//! providers and AI are defined as commands that report "not available yet"
-//! so the UI can handle the absence honestly; they arrive in later milestones.
+//! menu, and expose the command surface the UI talks to. Media sessions are live
+//! (Milestone 2); lyrics providers and AI still report "not available yet" so the UI
+//! can handle their absence honestly; they arrive in later milestones.
+
+mod media;
+#[cfg(windows)]
+mod media_windows;
 
 use islet_core::{
+    media::{MediaState, TransportCommand},
     placement::{island_rect, pick_monitor, MonitorRect},
     Settings, SettingsStore,
 };
@@ -202,17 +207,20 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
-// Milestone 2 (media) -------------------------------------------------------
+// Media (Milestone 2) --------------------------------------------------------
 
-/// No media backend yet: the UI treats `null` as "no session".
 #[tauri::command]
-fn media_get_state() -> Value {
-    serde_json::json!({ "session": null })
+fn media_get_state(media: State<media::MediaHandle>) -> MediaState {
+    media.state()
 }
 
+// `async` so waiting for the player never blocks the UI thread.
 #[tauri::command]
-fn media_transport(_command: Value) -> Result<(), String> {
-    Err("Media control is not available yet (Milestone 2: Windows media sessions).".into())
+async fn media_transport(
+    media: State<'_, media::MediaHandle>,
+    command: TransportCommand,
+) -> Result<(), String> {
+    media.send(command)
 }
 
 // Milestone 5/6 (assistant) ---------------------------------------------------
@@ -252,6 +260,8 @@ pub fn run() {
                 store,
                 island_size: Mutex::new((260.0, 60.0)),
             });
+
+            app.manage(media::start(app.handle().clone()));
 
             if let Some(w) = register_hotkey(app.handle(), &hotkey) {
                 eprintln!("islet: {w}");

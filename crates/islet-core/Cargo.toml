@@ -9,6 +9,7 @@ description = "Platform-neutral core of Islet: settings schema, persistence and 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"

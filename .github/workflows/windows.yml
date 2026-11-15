@@ -17,6 +17,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: cargo test --workspace
+      # Exercises the real Windows media-session API. A hosted runner has no player open, so this
+      # only proves the integration is reachable; it is informational and must not block the build.
+      - name: Windows media API smoke test
+        continue-on-error: true
+        run: cargo test -p islet -- --ignored --nocapture
       - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:

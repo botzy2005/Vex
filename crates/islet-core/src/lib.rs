@@ -4,6 +4,7 @@
 //! the settings schema (with sanitising and merge-patch updates), atomic
 //! persistence, and the monitor/DPI placement math for the island window.
 
+pub mod media;
 pub mod placement;
 pub mod settings;
 pub mod store;
