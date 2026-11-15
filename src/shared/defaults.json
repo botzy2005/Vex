@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "appearance": {
+    "theme": "dark",
+    "shape": "pill",
+    "glassOpacity": 0.92,
+    "cornerRadius": 26,
+    "accentSource": "artwork",
+    "customAccent": "#0a84ff",
+    "motion": "normal",
+    "sizeScale": 1.0
+  },
+  "island": {
+    "monitorIndex": -1,
+    "offsetX": 0,
+    "marginTop": 8,
+    "hoverToExpand": true,
+    "hoverDelayMs": 120,
+    "collapseDelayMs": 350,
+    "hotkey": "Ctrl+Alt+I"
+  },
+  "music": {
+    "artwork": true,
+    "visualizer": true,
+    "lyricsEnabled": true,
+    "lyricsInCollapsed": true,
+    "lyricsFont": "Segoe UI Variable, Segoe UI, system-ui, sans-serif",
+    "lyricsFontSize": 15,
+    "lyricsAnimationSpeed": 1.0,
+    "karaoke": true,
+    "lyricsOffsetMs": 0
+  },
+  "ai": {
+    "provider": "ollama",
+    "model": "",
+    "systemPrompt": "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short."
+  }
+}
