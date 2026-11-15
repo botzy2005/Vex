@@ -20,8 +20,17 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [ ] **Needs a Windows run (cannot be done in the Linux build environment):** transparency/shadow on WebView2, real window sizing, tray, global shortcut firing, multi-monitor, DPI, NSIS installer, uninstall
 - [ ] True desktop backdrop blur (acrylic/Mica) — M1 glass is an opacity gradient only
 
+## Milestone 2 — Windows media sessions
+- [x] Which session to show when several players are open (playing > paused > stopped, Windows' current session wins ties) — 5 Rust tests
+- [x] Position maths: start offset, rate, stale update times, clamping, Windows tick conversion — 7 Rust tests
+- [x] Change detection: no UI spam from normal playback; seeks, track/status/capability/artwork changes are emitted — 3 Rust tests
+- [x] Artwork: fetched once per track, retried while the player is late publishing it, bounded, never reused across tracks, only real images accepted — 4 Rust tests
+- [x] Polling loop: commands handled immediately, quick re-poll after a command, clean shutdown — threaded Rust test
+- [x] Wire format of state and transport commands matches the TypeScript types — 2 Rust tests
+- [x] Windows glue (`media_windows.rs`) compiles on Windows and the real API is reachable: on a GitHub Windows runner the session manager initialises and listing sessions succeeds (reports "nothing playing")
+- [ ] **Not yet verified with a real player (needs a human at a Windows PC):** title/artist/artwork from Spotify and a browser tab, play/pause/next/previous, seeking by clicking the bar or a lyric line, progress staying in sync, switching between two open players
+
 ## Milestones not started
-- [ ] M2 Windows media sessions (SMTC) — fills `media_get_state` / `media_transport` and the `media-state` event
 - [ ] M3 Lyrics providers (LRCLIB) — implements `LyricsProvider`
 - [ ] M4 Remaining settings (startup, notifications, privacy, wallpaper accent)
 - [ ] M5 AI providers (Ollama first) — fills `assistant_send`

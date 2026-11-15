@@ -27,7 +27,20 @@
 ## Interfaces waiting for later milestones
 | Interface | Today | Fulfilled by |
 |---|---|---|
-| `media_get_state` / `media-state` event / `media_transport` | no session; transport returns "not available yet" | M2 — Windows media sessions |
 | `LyricsProvider` (`src/lyrics/provider.ts`) | only the user's own `.lrc` files | M3 — LRCLIB + fallback chain |
 | `assistant_send` / `assistant-state` event | sending reports "No AI provider is connected yet" | M5 (providers), M6 (voice) |
 | Settings `ai.*` | stored, not used | M5 |
+
+## Media (Milestone 2)
+```
+Windows SMTC ─▶ media_windows.rs (reads state, forwards commands)      ← only Windows-specific code
+                    │ implements MediaSource
+                    ▼
+        islet_core::media::MediaEngine   pick session · position maths · change detection · artwork cache
+                    ▲ run_loop (own thread, 500 ms active / 1.5 s idle / 120 ms after a command)
+                    │
+        src-tauri/src/media.rs ──▶ `media-state` event + `media_get_state` / `media_transport` commands ──▶ UI
+```
+The UI never polls: it receives a state only when something changed and extrapolates the playback position itself
+between updates. On non-Windows platforms an `UnavailableSource` is used, so the UI shows "Nothing playing" and
+commands fail with a clear message.

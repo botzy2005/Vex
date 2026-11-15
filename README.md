@@ -4,9 +4,10 @@ A floating pill at the top of your screen that expands into a music player with 
 Built with **Tauri 2 (Rust) + React/TypeScript** (WebView2). MIT licensed. See `NOTICE.md` for provenance — this is an
 independent project, not affiliated with Notchify, Fenn or any other app.
 
-> **Status: Milestone 1.** The island, music/lyrics interface, assistant face and settings work. Reading what is
-> playing on your PC (Spotify, browsers…) arrives in **Milestone 2**; until then the music panel says "Nothing playing"
-> instead of faking a player. See `docs/CHECKLIST.md` for exactly what is and isn't done.
+> **Status: Milestone 2.** The island reads what is playing through Windows media sessions (Spotify, browsers, any
+> player that shows in the Windows volume flyout), shows title/artist/artwork/progress and controls playback.
+> The Windows build and the API integration are verified by CI; behaviour with a real player is still to be confirmed
+> on a PC (see `docs/CHECKLIST.md`). Automatic lyric lookup arrives in Milestone 3.
 
 ## Run it on Windows 10/11 (x64)
 
@@ -34,7 +35,7 @@ enhanced (per-word) LRC are supported; the file is remembered for that track on 
 ## Tests
 ```
 npm test              # 27 logic tests (lyrics parsing/sync, spring, layout, accent)
-cargo test --workspace  # settings, persistence, placement, hotkey parsing
+cargo test --workspace  # settings, persistence, placement, media engine, hotkey parsing
 npm run dev &  npm run test:ui   # 45 real-browser UI checks (needs python3 + playwright)
 ```
 A GitHub Actions workflow (`.github/workflows/windows.yml`) runs everything and builds the installer on a real Windows runner.
