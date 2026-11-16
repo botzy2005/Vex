@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { MediaSession, Settings } from '../shared/types';
 import { MusicIcon } from './icons';
 import { ProgressBar } from './ProgressBar';
@@ -17,10 +17,13 @@ export function MusicPanel({
   session,
   music,
   getPos,
+  peek,
 }: {
   session: MediaSession | null;
   music: Settings['music'];
   getPos: () => number;
+  /** Current lyric line, shown between the titles and the progress bar. */
+  peek?: ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +39,12 @@ export function MusicPanel({
 
   return (
     <div className="music-panel" data-testid="music-panel">
-      {music.artwork && <Artwork session={session} className="large" />}
+      {music.artwork && (
+        <div className="art-wrap">
+          {session.artworkUrl && <img className="art-glow" src={session.artworkUrl} alt="" draggable={false} aria-hidden />}
+          <Artwork session={session} className="large" />
+        </div>
+      )}
       <div className="music-main">
         <div className="titles">
           <div className="title-row">
@@ -45,6 +53,7 @@ export function MusicPanel({
           </div>
           <div className="artist" data-testid="track-artist" title={session.artist}>{session.artist}</div>
         </div>
+        {peek}
         <ProgressBar session={session} getPos={getPos} onError={setError} />
         <Transport session={session} onError={setError} />
         {error && <div className="inline-error" role="alert" onAnimationEnd={() => setError(null)}>{error}</div>}

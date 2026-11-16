@@ -65,6 +65,16 @@ pub enum AiProvider {
     OpenAiCompatible,
 }
 
+/// How the active lyric line animates in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LyricsStyle {
+    /// Each letter rises in with a staggered delay and a sweep follows the singing.
+    Letters,
+    /// The whole line fades in.
+    Line,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Appearance {
@@ -104,6 +114,9 @@ pub struct Music {
     pub artwork: bool,
     pub visualizer: bool,
     pub lyrics_enabled: bool,
+    /// Look lyrics up on LRCLIB automatically (sends artist, title and duration to lrclib.net).
+    pub lyrics_online: bool,
+    pub lyrics_style: LyricsStyle,
     pub lyrics_in_collapsed: bool,
     pub lyrics_font: String,
     pub lyrics_font_size: u32,
@@ -167,6 +180,8 @@ impl Default for Music {
             artwork: true,
             visualizer: true,
             lyrics_enabled: true,
+            lyrics_online: true,
+            lyrics_style: LyricsStyle::Letters,
             lyrics_in_collapsed: true,
             lyrics_font: DEFAULT_LYRICS_FONT.into(),
             lyrics_font_size: 15,

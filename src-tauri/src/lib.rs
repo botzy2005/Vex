@@ -6,11 +6,13 @@
 //! (Milestone 2); lyrics providers and AI still report "not available yet" so the UI
 //! can handle their absence honestly; they arrive in later milestones.
 
+mod lyrics;
 mod media;
 #[cfg(windows)]
 mod media_windows;
 
 use islet_core::{
+    lyrics::{LyricsResult, TrackQuery},
     media::{MediaState, TransportCommand},
     placement::{island_rect, pick_monitor, MonitorRect},
     Settings, SettingsStore,
@@ -223,6 +225,25 @@ async fn media_transport(
     media.send(command)
 }
 
+// Lyrics (Milestone 3) --------------------------------------------------------
+
+/// Automatic LRCLIB lookup. Returns Ok(None) when the track has no lyrics there;
+/// Err only for network failures (which are not cached, so the UI may retry).
+/// Honours the `music.lyricsOnline` setting so nothing leaves the PC when it is off.
+#[tauri::command]
+async fn lyrics_fetch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    track: TrackQuery,
+) -> Result<Option<LyricsResult>, String> {
+    if !state.settings.lock().map_err(|_| "settings poisoned")?.music.lyrics_online {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || app.state::<lyrics::LyricsHandle>().lookup(&track))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 // Milestone 5/6 (assistant) ---------------------------------------------------
 
 #[tauri::command]
@@ -262,6 +283,7 @@ pub fn run() {
             });
 
             app.manage(media::start(app.handle().clone()));
+            app.manage(lyrics::LyricsHandle::new());
 
             if let Some(w) = register_hotkey(app.handle(), &hotkey) {
                 eprintln!("islet: {w}");
@@ -322,6 +344,7 @@ pub fn run() {
             quit_app,
             media_get_state,
             media_transport,
+            lyrics_fetch,
             assistant_send,
             assistant_preview_state,
         ])

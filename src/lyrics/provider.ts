@@ -8,14 +8,18 @@ export interface TrackKey {
   durationMs: number | null;
 }
 
-/**
- * A source of synced lyrics. Milestone 3 adds an LRCLIB provider behind this
- * same interface; Milestone 1 ships only the user-supplied .lrc provider.
- */
+/** What a provider found for a track. */
+export type LyricsOutcome =
+  | { kind: 'synced'; doc: LyricsDoc }
+  /** Lyrics exist but carry no timing, so they cannot be followed live. */
+  | { kind: 'plain'; text: string; source: string }
+  | { kind: 'instrumental'; source: string };
+
+/** A source of lyrics. Providers are tried in order; the first synced result wins. */
 export interface LyricsProvider {
   id: string;
   name: string;
-  fetch(track: TrackKey): Promise<LyricsDoc | null>;
+  fetch(track: TrackKey): Promise<LyricsOutcome | null>;
 }
 
 export const trackKeyOf = (s: MediaSession): TrackKey => ({
@@ -37,7 +41,8 @@ export const localLrcProvider: LyricsProvider = {
   async fetch(track) {
     try {
       const text = localStorage.getItem(STORE_PREFIX + trackId(track));
-      return text ? parseLrc(text, 'Your .lrc file') : null;
+      const doc = text ? parseLrc(text, 'Your .lrc file') : null;
+      return doc ? { kind: 'synced', doc } : null;
     } catch {
       return null;
     }

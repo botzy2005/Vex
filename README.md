@@ -7,7 +7,7 @@ independent project, not affiliated with Notchify, Fenn or any other app.
 > **Status: Milestone 2.** The island reads what is playing through Windows media sessions (Spotify, browsers, any
 > player that shows in the Windows volume flyout), shows title/artist/artwork/progress and controls playback.
 > The Windows build and the API integration are verified by CI; behaviour with a real player is still to be confirmed
-> on a PC (see `docs/CHECKLIST.md`). Automatic lyric lookup arrives in Milestone 3.
+> on a PC (see `docs/CHECKLIST.md`). Lyrics are looked up automatically on LRCLIB (not yet verified on a real PC).
 
 ## Run it on Windows 10/11 (x64)
 
@@ -28,9 +28,11 @@ The tray icon has *Settings…* and *Quit*.
 `npm install && npm run dev:browser` opens the real UI in a browser with a clearly-labelled **simulated** player (drive it from the
 console via `window.__harness`). This harness is for development/testing only and is not in the shipped app.
 
-## Using lyrics in Milestone 1
-Automatic lookup arrives in M3. For now, open the island → **Lyrics** tab → **Load .lrc file…** for the current song. Plain and
-enhanced (per-word) LRC are supported; the file is remembered for that track on this PC.
+## Lyrics
+Lyrics are fetched automatically from LRCLIB (https://lrclib.net) when a song starts; this sends the title, artist, album and
+length, and can be turned off in Settings → Music & lyrics. If nothing is found you can load your own `.lrc` file from the
+**Lyrics** tab (plain and enhanced per-word LRC are supported; remembered per track, and it takes priority over online lyrics).
+Lyrics animate letter by letter; choose "Line" in settings for a simple fade.
 
 ## Tests
 ```

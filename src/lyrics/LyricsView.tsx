@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import type { LyricsHook } from './useLyrics';
 import type { MediaSession, Settings } from '../shared/types';
 import { useFrameLoop } from '../island/hooks';
+import { LetterLine } from './LetterLine';
 import { lineEndMs, wordFractions } from './sync';
 
 export function LyricsView({
@@ -38,7 +39,8 @@ export function LyricsView({
 
   // Karaoke: fill the words of the active line according to the live position.
   const line = doc && activeIndex >= 0 ? doc.lines[activeIndex] : null;
-  const karaoke = music.karaoke && !!line?.words;
+  const letters = music.lyricsStyle === 'letters';
+  const karaoke = !letters && music.karaoke && !!line?.words;
   const paintWords = () => {
     if (!doc || !line?.words || !track.current) return;
     const spans = track.current.querySelectorAll<HTMLElement>('[data-active="true"] .kw');
@@ -59,13 +61,45 @@ export function LyricsView({
   if (!session) return <div className="empty" data-testid="lyrics-empty"><strong>No lyrics yet</strong><span>Lyrics appear here while a song is playing.</span></div>;
 
   if (!doc) {
-    return (
-      <div className="empty" data-testid="lyrics-empty">
-        <strong>{lyrics.status === 'loading' ? 'Looking for lyrics…' : 'No synced lyrics for this track'}</strong>
-        <span>Automatic lyric search arrives in Milestone 3. For now you can load a synced <code>.lrc</code> file for this song.</span>
+    const loadBtn = (
+      <>
         <button className="pill-btn" onClick={() => fileInput.current?.click()} data-testid="load-lrc">Load .lrc file…</button>
         <input ref={fileInput} type="file" accept=".lrc,.txt,text/plain" hidden data-testid="lrc-input" onChange={(e) => onFile(e.target.files?.[0])} />
         {lyrics.error && <span className="inline-error" role="alert">{lyrics.error}</span>}
+      </>
+    );
+    if (lyrics.status === 'plain' && lyrics.plain) {
+      return (
+        <div className="lyrics-view" data-testid="lyrics-plain">
+          <div className="plain-note">Lyrics found, but without timing, so they can't follow the song. {lyrics.source}</div>
+          <div className="plain-text" style={{ fontSize: music.lyricsFontSize - 2, fontFamily: music.lyricsFont }}>{lyrics.plain}</div>
+          <div className="lyr-foot"><span>Have a synced version?</span>{loadBtn}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="empty" data-testid="lyrics-empty" data-status={lyrics.status}>
+        {lyrics.status === 'loading' && <strong>Looking for lyrics…</strong>}
+        {lyrics.status === 'instrumental' && <><strong>Instrumental ♪</strong><span>This track has no lyrics.</span></>}
+        {lyrics.status === 'error' && (
+          <>
+            <strong>Couldn't reach the lyrics service</strong>
+            <span>Check your connection. Islet will try again shortly.</span>
+            <button className="pill-btn" onClick={lyrics.retry} data-testid="retry-lyrics">Try again</button>
+            {loadBtn}
+          </>
+        )}
+        {lyrics.status === 'not-found' && (
+          <>
+            <strong>No synced lyrics found</strong>
+            <span>
+              {lyrics.online
+                ? 'LRCLIB has no timed lyrics for this track. You can load your own .lrc file.'
+                : 'Online lookup is off (Settings → Music & lyrics). You can load a .lrc file for this track.'}
+            </span>
+            {loadBtn}
+          </>
+        )}
       </div>
     );
   }
@@ -91,16 +125,20 @@ export function LyricsView({
                 data-seekable={session.capabilities.seek}
                 onClick={() => session.capabilities.seek && onSeek(l.timeMs + offset)}
               >
-                {active && karaoke && l.words
-                  ? l.words.map((w, wi) => <span key={wi} className="kw">{w.text}</span>)
-                  : l.text || '♪'}
+                {active && letters ? (
+                  <LetterLine key={`a${i}`} line={l} endMs={lineEndMs(doc.lines, i)} getPos={getPos} offsetMs={offset} playing={session.status === 'playing'} speed={speed} />
+                ) : active && karaoke && l.words ? (
+                  l.words.map((w, wi) => <span key={wi} className="kw">{w.text}</span>)
+                ) : (
+                  l.text || '♪'
+                )}
               </div>
             );
           })}
         </div>
       </div>
       <div className="lyr-foot">
-        <span>{doc.source}</span>
+        <span>{doc.source === 'LRCLIB' ? 'Lyrics from LRCLIB' : doc.source}</span>
         <button className="link-btn" onClick={lyrics.clear} data-testid="clear-lrc">Remove</button>
       </div>
     </div>

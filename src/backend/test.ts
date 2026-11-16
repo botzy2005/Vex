@@ -10,6 +10,8 @@ import defaults from '../shared/defaults.json';
 import { mergePatch } from '../shared/merge';
 import type {
   AssistantState,
+  LyricsFetchResult,
+  LyricsQuery,
   MediaSession,
   MediaState,
   Settings,
@@ -23,6 +25,11 @@ const KEY = 'islet-test-settings';
 export interface Harness {
   /** Replace (or clear) the simulated external media session. */
   setSession(s: Partial<MediaSession> | null): void;
+  /** What the simulated lyrics service answers: a result, null (no lyrics), or an error message. */
+  setLyricsReply(reply: LyricsFetchResult | null | { error: string }): void;
+  readonly lyricsCalls: LyricsQuery[];
+  /** Apply a settings patch exactly as the Settings window would. */
+  patchSettings: (patch: SettingsPatch) => Promise<void>;
   emitAssistant(state: AssistantState): void;
   emitIslandToggle(): void;
   readonly transportCalls: TransportCommand[];
@@ -56,6 +63,8 @@ export function createTestBackend(): Backend {
   const sizes: Array<[number, number]> = [];
   const sends: string[] = [];
   let opened = 0;
+  let lyricsReply: LyricsFetchResult | null | { error: string } = null;
+  const lyricsCalls: LyricsQuery[] = [];
 
   const sub = <T,>(set: Set<(v: T) => void>, cb: (v: T) => void): Promise<Unsub> => {
     set.add(cb);
@@ -75,7 +84,8 @@ export function createTestBackend(): Backend {
     }
   });
 
-  window.__harness = {
+  const harness: Harness = {
+    patchSettings: async () => {},
     setSession(partial) {
       if (partial === null) session = null;
       else {
@@ -97,6 +107,10 @@ export function createTestBackend(): Backend {
       }
       emitMedia();
     },
+    setLyricsReply: (r) => {
+      lyricsReply = r;
+    },
+    lyricsCalls,
     emitAssistant: (s) => assistantSubs.forEach((cb) => cb(s)),
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
     transportCalls: calls,
@@ -106,21 +120,25 @@ export function createTestBackend(): Backend {
       return opened;
     },
   };
+  window.__harness = harness;
+
+  async function applyPatch(patch: SettingsPatch) {
+    // Same semantics as the Rust backend: `null` removes a key, then missing keys fall back to defaults.
+    settings = mergePatch(structuredClone(defaults) as Settings, mergePatch(settings, patch));
+    try {
+      localStorage.setItem(KEY, JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+    settingsSubs.forEach((cb) => cb(settings));
+    return { settings, warnings: [] as string[] };
+  }
+  harness.patchSettings = async (p) => void (await applyPatch(p));
 
   return {
     kind: 'test',
     getSettings: async () => settings,
-    async updateSettings(patch: SettingsPatch) {
-      // Same semantics as the Rust backend: `null` removes a key, then missing keys fall back to defaults.
-      settings = mergePatch(structuredClone(defaults) as Settings, mergePatch(settings, patch));
-      try {
-        localStorage.setItem(KEY, JSON.stringify(settings));
-      } catch {
-        /* ignore */
-      }
-      settingsSubs.forEach((cb) => cb(settings));
-      return { settings, warnings: [] };
-    },
+    updateSettings: (patch: SettingsPatch) => applyPatch(patch),
     onSettingsChanged: (cb) => sub(settingsSubs, cb),
     listMonitors: async () => [
       { index: 0, name: 'Test display 1', x: 0, y: 0, width: 1920, height: 1080, scale: 1, primary: true },
@@ -143,6 +161,13 @@ export function createTestBackend(): Backend {
       else if (cmd.type === 'toggle')
         session = { ...session, status: session.status === 'playing' ? 'paused' : 'playing', positionMs: pos, positionUpdatedAt: Date.now() };
       emitMedia();
+    },
+
+    async lyricsFetch(track) {
+      lyricsCalls.push(track);
+      if (!settings.music.lyricsOnline) return null;
+      if (lyricsReply && 'error' in lyricsReply) throw new Error(lyricsReply.error);
+      return lyricsReply;
     },
 
     async assistantSend(text) {

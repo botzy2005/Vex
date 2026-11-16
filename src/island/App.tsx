@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AssistantFace } from '../assistant/AssistantFace';
 import { AssistantPanel } from '../assistant/AssistantPanel';
 import { useAssistant, useBackend, useMedia, useResolvedTheme, useSettings, useSubscription } from '../backend/hooks';
+import { LetterLine } from '../lyrics/LetterLine';
 import { LineSwap } from '../lyrics/LineSwap';
+import { lineEndMs } from '../lyrics/sync';
+import { LyricPeek } from '../lyrics/LyricPeek';
 import { LyricsView } from '../lyrics/LyricsView';
 import { useLyrics } from '../lyrics/useLyrics';
 import { GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
@@ -31,8 +34,8 @@ export function IslandApp() {
   const exp = useExpansion(settings?.island, inputFocused);
 
   const getPos = usePlaybackPosition(session);
-  const lyrics = useLyrics(session);
   const music = settings?.music;
+  const lyrics = useLyrics(session, backend, music?.lyricsOnline ?? true);
   const lyricsOffset = music?.lyricsOffsetMs ?? 0;
   const activeIndex = useActiveLine(music?.lyricsEnabled ? lyrics.doc : null, getPos, lyricsOffset, session);
   const activeText = lyrics.doc && activeIndex >= 0 ? lyrics.doc.lines[activeIndex].text : '';
@@ -113,7 +116,21 @@ export function IslandApp() {
             <div className="v compact" key="lyrics" data-testid="view-lyrics">
               {music.artwork && <Artwork session={session} className="mini" />}
               <div className="grow" style={{ fontFamily: music.lyricsFont }}>
-                <LineSwap text={activeText} speed={music.lyricsAnimationSpeed} />
+                {music.lyricsStyle === 'letters' && lyrics.doc && activeIndex >= 0 ? (
+                  <div className="compact-letters" data-testid="compact-lyric">
+                    <LetterLine
+                      key={`c${activeIndex}`}
+                      line={lyrics.doc.lines[activeIndex]}
+                      endMs={lineEndMs(lyrics.doc.lines, activeIndex)}
+                      getPos={getPos}
+                      offsetMs={lyricsOffset}
+                      playing={playing}
+                      speed={music.lyricsAnimationSpeed}
+                    />
+                  </div>
+                ) : (
+                  <LineSwap text={activeText} speed={music.lyricsAnimationSpeed} />
+                )}
               </div>
               {music.visualizer && <Visualizer playing={playing} />}
             </div>
@@ -167,7 +184,7 @@ export function IslandApp() {
                 </div>
               </header>
               <main className="body" key={tab}>
-                {tab === 'music' && <MusicPanel session={session} music={music} getPos={getPos} />}
+                {tab === 'music' && <MusicPanel session={session} music={music} getPos={getPos} peek={<LyricPeek lyrics={lyrics} activeIndex={activeIndex} getPos={getPos} music={music} playing={playing} />} />}
                 {tab === 'lyrics' && (
                   <div className="lyrics-tab">
                     {session && music.artwork && <Artwork session={session} className="side" />}

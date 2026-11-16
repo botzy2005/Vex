@@ -23,6 +23,8 @@
     "artwork": true,
     "visualizer": true,
     "lyricsEnabled": true,
+    "lyricsOnline": true,
+    "lyricsStyle": "letters",
     "lyricsInCollapsed": true,
     "lyricsFont": "Segoe UI Variable, Segoe UI, system-ui, sans-serif",
     "lyricsFontSize": 15,

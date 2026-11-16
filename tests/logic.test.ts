@@ -226,3 +226,49 @@ describe('accent extraction', () => {
     expect(parseInt(acc.slice(1, 3), 16)).toBeGreaterThanOrEqual(150);
   });
 });
+
+import { estimatedSingMs, headPosition, letterLevels } from '../src/lyrics/sync';
+
+describe('letter sweep', () => {
+  const plain = { timeMs: 1000, text: 'Hello world' };
+  it('starts unlit, ends fully lit', () => {
+    expect(letterLevels(11, 0).every((v) => v === 0)).toBe(true);
+    expect(letterLevels(11, 11).every((v) => v === 1)).toBe(true);
+  });
+  it('lights letters left to right with a soft edge', () => {
+    const l = letterLevels(10, 5);
+    for (let i = 1; i < l.length; i++) expect(l[i]).toBeLessThanOrEqual(l[i - 1]);
+    expect(l[0]).toBe(1);
+    expect(l[9]).toBe(0);
+    expect(l.some((v) => v > 0 && v < 1)).toBe(true);
+  });
+  it('estimates plain-LRC timing, capped by the line slot', () => {
+    expect(estimatedSingMs(10, 10_000)).toBe(1200);
+    expect(estimatedSingMs(100, 3000)).toBe(3000);
+    expect(estimatedSingMs(1, 10_000)).toBe(570);
+  });
+  it('plain line: head is 0 before, n after, and monotonic', () => {
+    expect(headPosition(plain.text, plain, 9000, 500)).toBe(0);
+    expect(headPosition(plain.text, plain, 9000, 20_000)).toBe(11);
+    const a = headPosition(plain.text, plain, 9000, 1500);
+    const b = headPosition(plain.text, plain, 9000, 1800);
+    expect(b).toBeGreaterThan(a);
+  });
+  it('word-timed line: head follows the real words, not an estimate', () => {
+    const line = {
+      timeMs: 0,
+      text: 'Hello world',
+      words: [
+        { timeMs: 0, text: 'Hello ' },
+        { timeMs: 3000, text: 'world' },
+      ],
+    };
+    expect(headPosition(line.text, line, 6000, 1500)).toBeCloseTo(2.5, 5); // halfway through "Hello" (5 letters)
+    expect(headPosition(line.text, line, 6000, 3000)).toBeGreaterThanOrEqual(5);
+    expect(headPosition(line.text, line, 6000, 6000)).toBe(11);
+  });
+  it('word timing that does not match the text falls back to the estimate', () => {
+    const line = { timeMs: 0, text: 'Different', words: [{ timeMs: 0, text: 'Hello' }] };
+    expect(headPosition(line.text, line, 9000, 20_000)).toBe(9);
+  });
+});

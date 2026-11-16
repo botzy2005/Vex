@@ -27,7 +27,7 @@
 ## Interfaces waiting for later milestones
 | Interface | Today | Fulfilled by |
 |---|---|---|
-| `LyricsProvider` (`src/lyrics/provider.ts`) | only the user's own `.lrc` files | M3 — LRCLIB + fallback chain |
+| `LyricsProvider` (`src/lyrics/provider.ts`) | user `.lrc` files, then LRCLIB (native fetch in `src-tauri/src/lyrics.rs`, logic in `islet-core::lyrics`) | more providers / manual search |
 | `assistant_send` / `assistant-state` event | sending reports "No AI provider is connected yet" | M5 (providers), M6 (voice) |
 | Settings `ai.*` | stored, not used | M5 |
 

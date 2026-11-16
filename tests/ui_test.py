@@ -46,9 +46,9 @@ def main():
         def spring_in_flight():
             isl.hover(); page.wait_for_timeout(260)
             w = box()["width"]
-            assert 190 < w < 520 or w > 400, w  # captured mid-spring or settled
+            assert 190 < w < 540 or w > 400, w  # captured mid-spring or settled
             page.wait_for_timeout(900)
-            assert abs(box()["width"] - 520) < 2, box()
+            assert abs(box()["width"] - 540) < 2, box()
         check("expansion settles at the exact expanded width", spring_in_flight)
 
         def empty_music():
@@ -105,7 +105,7 @@ def main():
         page.locator('[data-testid="tab-lyrics"]').click(); page.wait_for_timeout(400)
 
         def lyrics_empty_prompt():
-            expect(page.locator('[data-testid="lyrics-empty"]')).to_contain_text("No synced lyrics")
+            expect(page.locator('[data-testid="lyrics-empty"]')).to_contain_text("No synced lyrics found")
             expect(page.locator('[data-testid="lyric-active"]')).to_have_count(0)
         check("no lyrics are invented: empty state with Load .lrc action", lyrics_empty_prompt)
 
@@ -145,11 +145,13 @@ def main():
         check("lyrics freeze while paused", stops_when_paused)
 
         def karaoke_fill():
+            page.evaluate("window.__harness.patchSettings({music:{lyricsStyle:'line'}})")
             page.evaluate("window.__harness.setSession({title:'Lyric Song', artist:'LRC Band', durationMs:60000, positionMs:10500, status:'paused'})")
             page.wait_for_timeout(500)
             ps = page.locator('[data-testid="lyric-active"] .kw').evaluate_all("els => els.map(e => e.style.getPropertyValue('--p'))")
             assert len(ps) == 3 and ps[0] == "100.0%" and ps[1] == "50.0%" and ps[2] == "0.0%", ps
         check("word-by-word fill matches position (100% / 50% / 0%)", karaoke_fill)
+        page.evaluate("window.__harness.patchSettings({music:{lyricsStyle:'letters'}})")
 
         def click_line_seeks():
             page.locator('[data-testid="lyrics-view"] .lyr-line', has_text="echo line").click(); page.wait_for_timeout(250)
@@ -168,17 +170,117 @@ def main():
             page.evaluate("window.__harness.setSession({title:'Lyric Song', artist:'LRC Band', durationMs:60000, positionMs:6000, status:'paused'})")
             page.mouse.move(5, 380); page.wait_for_timeout(2000)
             expect(isl).to_have_attribute("data-view", "lyrics")
-            expect(page.locator('[data-testid="compact-lyric-text"]')).to_have_text("bravo line")
+            expect(page.locator('[data-testid="compact-lyric"] [data-testid="letter-line"]')).to_have_text("bravo line")
         check("collapsed island shows the current lyric line", compact_lyrics)
 
         def compact_swap_animation():
             page.evaluate("window.__harness.setSession({title:'Lyric Song', artist:'LRC Band', durationMs:60000, positionMs:8800, status:'playing'})")
             page.wait_for_timeout(450)  # 9.0s crossing inside; capture the transition
-            n = page.locator('.swap-out').count()
             page.wait_for_timeout(100)
-            expect(page.locator('[data-testid="compact-lyric-text"]')).to_contain_text("char lie delta")
-            assert n >= 0
-        check("collapsed lyric line swaps when the line changes", compact_swap_animation)
+            expect(page.locator('[data-testid="compact-lyric"] [data-testid="letter-line"]')).to_have_text("char lie delta")
+        check("collapsed lyric line changes when the line changes", compact_swap_animation)
+
+        # ---- letters, automatic lookup, statuses ----
+        AUTO = "[00:01.00]first auto line\n[00:05.00]second auto line\n[00:09.00]third auto line\n"
+        def levels():
+            return page.locator('[data-testid="compact-lyric"] .lf').evaluate_all("els => els.map(e => parseFloat(e.style.getPropertyValue('--l')))")
+        def set_pos(pos, status='paused', title='Lyric Song', artist='LRC Band', dur=60000):
+            page.evaluate(f"window.__harness.setSession({{title:'{title}', artist:'{artist}', durationMs:{dur}, positionMs:{pos}, status:'{status}'}})")
+            page.wait_for_timeout(450)
+
+        def letters_structure():
+            set_pos(6000)
+            n = page.locator('[data-testid="compact-lyric"] .lt').count()
+            assert n == len("bravoline"), n
+            ds = page.locator('[data-testid="compact-lyric"] .lt').evaluate_all("els => els.map(e => parseFloat(e.style.getPropertyValue('--d')))")
+            assert ds == sorted(ds) and ds[-1] > ds[0] >= 0, ds
+        check("each letter is its own element with a rising stagger delay", letters_structure)
+
+        def letters_sweep():
+            set_pos(5000); l0 = levels()
+            assert all(v == 0 for v in l0), l0
+            set_pos(5400); lm = levels()
+            assert lm[0] > 0 and lm[-1] == 0 and all(lm[i] >= lm[i+1] for i in range(len(lm)-1)), lm
+            set_pos(8500); l1 = levels()
+            assert all(v == 1 for v in l1), l1
+        check("letters light up left to right with the song position (and freeze when paused)", letters_sweep)
+
+        def letters_follow_words():
+            set_pos(10500)  # line 'char lie delta': 'char' fully sung, 'lie' half
+            l = levels()
+            assert all(v == 1 for v in l[:5]) and 0 < l[5] < 1 and l[-1] == 0, l  # 'char' + 'l' sung, 'i' mid-sweep
+        check("with word timing the sweep follows the real words", letters_follow_words)
+
+        def line_style_setting():
+            page.evaluate("window.__harness.patchSettings({music:{lyricsStyle:'line'}})"); set_pos(6000)
+            expect(page.locator('[data-testid="compact-lyric-text"]')).to_have_text("bravo line")
+            assert page.locator('[data-testid="compact-lyric"] .lt').count() == 0
+            page.evaluate("window.__harness.patchSettings({music:{lyricsStyle:'letters'}})"); page.wait_for_timeout(300)
+        check("'Line' animation setting switches letters off", line_style_setting)
+
+        def auto_lookup():
+            page.evaluate("window.__harness.setLyricsReply({synced: %r, plain: null, instrumental: false, source: 'LRCLIB'})" % AUTO)
+            set_pos(6000, title='Auto Song', artist='Net Band', dur=30000)
+            calls = page.evaluate("window.__harness.lyricsCalls")
+            assert any(c["title"] == "Auto Song" and c["artist"] == "Net Band" and c["durationMs"] == 30000 for c in calls), calls
+            expect(page.locator('[data-testid="compact-lyric"] [data-testid="letter-line"]')).to_have_text("second auto line")
+        check("a new track triggers automatic lookup and its lyrics appear without any file", auto_lookup)
+
+        def local_file_wins():
+            # 'Lyric Song' has a user .lrc; the online service must not override it
+            page.evaluate("window.__harness.setLyricsReply({synced: %r, plain: null, instrumental: false, source: 'LRCLIB'})" % AUTO)
+            set_pos(6000)
+            expect(page.locator('[data-testid="compact-lyric"] [data-testid="letter-line"]')).to_have_text("bravo line")
+        check("the user's own .lrc takes priority over the online result", local_file_wins)
+
+        isl.hover(); page.wait_for_timeout(800)
+        def peek_in_player():
+            page.locator('[data-testid="tab-music"]').click(); page.wait_for_timeout(500)
+            expect(page.locator('[data-testid="peek-now"]')).to_have_text("bravo line")
+            assert abs(box()["height"] - 218) < 2, box()
+        check("the player shows the current lyric next to the controls", peek_in_player)
+        page.locator('[data-testid="tab-lyrics"]').click(); page.wait_for_timeout(300)
+
+        def lyrics_tab_attribution():
+            set_pos(6000, title='Auto Song', artist='Net Band', dur=30000)
+            expect(page.locator('[data-testid="lyrics-view"]')).to_contain_text("Lyrics from LRCLIB")
+        check("lyrics tab credits LRCLIB for online lyrics", lyrics_tab_attribution)
+
+        def error_then_retry():
+            page.evaluate("window.__harness.setLyricsReply({error: 'offline'})")
+            set_pos(0, title='Err Song', artist='Err Band', dur=30000)
+            expect(page.locator('[data-testid="lyrics-empty"]')).to_contain_text("Couldn't reach the lyrics service")
+            page.evaluate("window.__harness.setLyricsReply({synced: %r, plain: null, instrumental: false, source: 'LRCLIB'})" % AUTO)
+            page.locator('[data-testid="retry-lyrics"]').click(); page.wait_for_timeout(500)
+            expect(page.locator('[data-testid="lyrics-view"]')).to_contain_text("third auto line")
+        check("a network failure says so honestly, and Try again recovers", error_then_retry)
+
+        def plain_only():
+            page.evaluate("window.__harness.setLyricsReply({synced: null, plain: 'unsynced words here', instrumental: false, source: 'LRCLIB'})")
+            set_pos(0, title='Plain Song', artist='Plain Band', dur=30000)
+            expect(page.locator('[data-testid="lyrics-plain"]')).to_contain_text("unsynced words here")
+            expect(page.locator('[data-testid="lyrics-plain"]')).to_contain_text("without timing")
+            assert page.locator('[data-testid="lyric-active"]').count() == 0
+        check("unsynced lyrics are shown as static text, never faked as synced", plain_only)
+
+        def instrumental():
+            page.evaluate("window.__harness.setLyricsReply({synced: null, plain: null, instrumental: true, source: 'LRCLIB'})")
+            set_pos(0, title='Inst Song', artist='Inst Band', dur=30000)
+            expect(page.locator('[data-testid="lyrics-empty"]')).to_contain_text("Instrumental")
+        check("instrumental tracks are labelled", instrumental)
+
+        def online_off():
+            page.evaluate("window.__harness.setLyricsReply({synced: %r, plain: null, instrumental: false, source: 'LRCLIB'})" % AUTO)
+            page.evaluate("window.__harness.patchSettings({music:{lyricsOnline:false}})")
+            before = len(page.evaluate("window.__harness.lyricsCalls"))
+            set_pos(0, title='Private Song', artist='Priv Band', dur=30000)
+            expect(page.locator('[data-testid="lyrics-empty"]')).to_contain_text("Online lookup is off")
+            assert len(page.evaluate("window.__harness.lyricsCalls")) == before
+            page.evaluate("window.__harness.patchSettings({music:{lyricsOnline:true}})")
+        check("with online lookup off nothing is requested", online_off)
+
+        set_pos(6000)
+        page.mouse.move(5, 380); page.wait_for_timeout(1800)
 
         # ---- assistant ----
         page.evaluate("window.__harness.setSession(null)")
@@ -249,7 +351,7 @@ def main():
 
         def window_sizes():
             sizes = page.evaluate("window.__harness.windowSizes")
-            assert len(sizes) >= 3 and max(s[0] for s in sizes) >= 520 + 28, sizes
+            assert len(sizes) >= 3 and max(s[0] for s in sizes) >= 540 + 28, sizes
         check("OS window is resized to fit the island (grows with expansion)", window_sizes)
 
         # ---- settings window drives the island ----
@@ -276,8 +378,8 @@ def main():
             sp.evaluate("""() => { const el=document.querySelector('[data-testid="scale"]'); const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; set.call(el,'1.4'); el.dispatchEvent(new Event('input',{bubbles:true})); }""")
             page.wait_for_timeout(1500)
             w = isl.bounding_box()["width"]
-            assert abs(w - round(520 * 1.4)) < 3, w
-        check("settings: size slider rescales the island (520 -> 728px)", size_scale)
+            assert abs(w - round(540 * 1.4)) < 3, w
+        check("settings: size slider rescales the island (540 -> 756px)", size_scale)
 
         def motion_off_is_instant():
             ensure_expanded()

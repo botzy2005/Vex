@@ -4,6 +4,7 @@
 export type Theme = 'dark' | 'light' | 'system';
 export type Shape = 'pill' | 'notch';
 export type AccentSource = 'artwork' | 'custom';
+export type LyricsStyle = 'letters' | 'line';
 export type Motion = 'off' | 'subtle' | 'normal' | 'bouncy';
 export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'claude' | 'openrouter' | 'openai-compatible';
 
@@ -32,6 +33,8 @@ export interface Settings {
     artwork: boolean;
     visualizer: boolean;
     lyricsEnabled: boolean;
+    lyricsOnline: boolean;
+    lyricsStyle: LyricsStyle;
     lyricsInCollapsed: boolean;
     lyricsFont: string;
     lyricsFontSize: number;
@@ -123,5 +126,20 @@ export interface LyricLine {
 
 export interface LyricsDoc {
   lines: LyricLine[];
+  source: string;
+}
+
+export interface LyricsQuery {
+  title: string;
+  artist: string;
+  album?: string;
+  durationMs: number | null;
+}
+
+export interface LyricsFetchResult {
+  /** Raw LRC text (parse with parseLrc). */
+  synced: string | null;
+  plain: string | null;
+  instrumental: boolean;
   source: string;
 }

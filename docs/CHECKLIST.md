@@ -30,8 +30,16 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [x] Windows glue (`media_windows.rs`) compiles on Windows and the real API is reachable: on a GitHub Windows runner the session manager initialises and listing sessions succeeds (reports "nothing playing")
 - [ ] **Not yet verified with a real player (needs a human at a Windows PC):** title/artist/artwork from Spotify and a browser tab, play/pause/next/previous, seeking by clicking the bar or a lyric line, progress staying in sync, switching between two open players
 
+## Milestone 3 — automatic lyrics, letter animation, redesign
+- [x] LRCLIB lookup logic in `islet-core::lyrics`: title/artist cleaning, URL building, duration-checked candidate scoring, miss cache (errors not cached) — 14 Rust tests with a fake HTTP layer
+- [x] `lyrics_fetch` Tauri command with `ureq` and an identifying User-Agent; honours the `lyricsOnline` setting (off = nothing leaves the PC)
+- [x] Provider chain: your own .lrc first, then LRCLIB; plain-only, instrumental, not-found and network-error states are shown honestly; auto-retry after 20 s
+- [x] Per-letter animation (`LetterLine`): staggered rise-in, left-to-right sweep. Follows real word timing when the lyrics have it; for plain LRC the sweep speed is an **estimate** (~70 ms/letter, capped by the line length) — 6 unit tests
+- [x] Settings: "Find lyrics automatically", "Lyrics animation" (Letters/Line)
+- [x] Redesign: pure-black surface, drifting ambient glow from the artwork, larger artwork with glow, current lyric inside the player — 57 browser checks, screenshots reviewed
+- [ ] **Not verified (sandbox cannot reach lrclib.net, so no live request has ever been made):** real lookups on a PC, match quality across services (Spotify / YouTube titles), letter-animation smoothness on real hardware
+
 ## Milestones not started
-- [ ] M3 Lyrics providers (LRCLIB) — implements `LyricsProvider`
 - [ ] M4 Remaining settings (startup, notifications, privacy, wallpaper accent)
 - [ ] M5 AI providers (Ollama first) — fills `assistant_send`
 - [ ] M6 Voice in/out

@@ -17,6 +17,7 @@ export function createTauriBackend(): Backend {
     getMedia: () => invoke('media_get_state'),
     onMedia: (cb) => sub('media-state', cb),
     mediaTransport: (command) => invoke('media_transport', { command }),
+    lyricsFetch: (track) => invoke('lyrics_fetch', { track }),
     assistantSend: (text) => invoke('assistant_send', { text }),
     assistantPreview: (state) => invoke('assistant_preview_state', { state }),
     onAssistantState: (cb) => sub('assistant-state', cb),

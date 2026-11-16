@@ -108,13 +108,16 @@ function MusicPage({ s, update }: { s: Settings; update: Update }) {
       <Row label="Show equalizer" hint="Animates while a track is playing. It reflects play state, not the audio signal."><Toggle label="Show equalizer" testId="visualizer" checked={m.visualizer} onChange={(v) => set({ visualizer: v })} /></Row>
       <Row label="Show lyrics"><Toggle label="Show lyrics" testId="lyrics-enabled" checked={m.lyricsEnabled} onChange={(v) => set({ lyricsEnabled: v })} /></Row>
       <Row label="Lyrics in the collapsed island"><Toggle label="Lyrics in the collapsed island" testId="lyrics-collapsed" checked={m.lyricsInCollapsed} onChange={(v) => set({ lyricsInCollapsed: v })} /></Row>
-      <Row label="Word-by-word highlighting" hint="Only for lyrics that include per-word timing."><Toggle label="Word-by-word highlighting" testId="karaoke" checked={m.karaoke} onChange={(v) => set({ karaoke: v })} /></Row>
+      <Row label="Lyrics animation" hint="Letters: each letter rises in and lights up as it is sung. Line: the whole line fades in.">
+        <Segmented<Settings['music']['lyricsStyle']> label="Lyrics animation" testId="lyrics-style" value={m.lyricsStyle} onChange={(v) => set({ lyricsStyle: v })} options={[{ value: 'letters', label: 'Letters' }, { value: 'line', label: 'Line' }]} />
+      </Row>
+      <Row label="Word-by-word highlighting" hint="Line style only, and only for lyrics that include per-word timing."><Toggle label="Word-by-word highlighting" testId="karaoke" checked={m.karaoke} onChange={(v) => set({ karaoke: v })} /></Row>
       <Row label="Lyrics font" hint="Any font installed on this PC, with fallbacks separated by commas."><CommitText label="Lyrics font" testId="lyrics-font" width={260} value={m.lyricsFont} onCommit={(v) => set({ lyricsFont: v })} /></Row>
       <Row label="Lyrics size"><Slider label="Lyrics size" testId="lyrics-size" min={12} max={32} step={1} value={m.lyricsFontSize} format={(v) => `${v}px`} onChange={(v) => set({ lyricsFontSize: v })} /></Row>
       <Row label="Lyrics animation speed"><Slider label="Lyrics animation speed" testId="lyrics-speed" min={0.25} max={3} step={0.05} value={m.lyricsAnimationSpeed} format={(v) => `${v.toFixed(2)}×`} onChange={(v) => set({ lyricsAnimationSpeed: v })} /></Row>
       <Row label="Lyrics timing offset" hint="Positive values show each line later."><Slider label="Lyrics timing offset" testId="lyrics-offset" min={-3000} max={3000} step={50} value={m.lyricsOffsetMs} format={(v) => `${v} ms`} onChange={(v) => set({ lyricsOffsetMs: v })} /></Row>
-      <Row label="Lyrics provider" hint="Automatic lookup (LRCLIB) arrives in Milestone 3. Until then, load .lrc files from the Lyrics tab.">
-        <Select<string> label="Lyrics provider" testId="provider" value="local" onChange={() => {}} options={[{ value: 'local', label: 'Your .lrc files' }]} />
+      <Row label="Find lyrics automatically" hint="Looks the playing track up on LRCLIB (lrclib.net). This sends the song title, artist, album and length to that service. Turn off to use only .lrc files you load yourself.">
+        <Toggle label="Find lyrics automatically" testId="lyrics-online" checked={m.lyricsOnline} onChange={(v) => set({ lyricsOnline: v })} />
       </Row>
       <ResetButton testId="reset-music" onClick={() => update({ music: null } as unknown as SettingsPatch)} />
     </section>
@@ -163,13 +166,11 @@ function AboutPage() {
   return (
     <section>
       <h2>About Islet</h2>
-      <p>Islet is a free Dynamic Island for Windows. Milestone 1: island shell, music and lyrics interface, assistant face and settings.</p>
-      <p className="dim">Islet is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile; nothing is sent anywhere.</p>
+      <p>Islet is a free Dynamic Island for Windows. Island shell, live Windows media controls, automatic synced lyrics, assistant face and settings.</p>
+      <p className="dim">Islet is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile. The only network request Islet makes is the optional lyrics lookup on LRCLIB (song title, artist, album and length), which you can turn off in Music & lyrics.</p>
       <h3>Roadmap</h3>
       <ul>
-        <li>Milestone 2 — Windows media sessions (Spotify, browsers, any player)</li>
-        <li>Milestone 3 — Automatic synced-lyrics lookup</li>
-        <li>Milestone 5–7 — AI providers, voice, system actions</li>
+                <li>Milestone 5–7 — AI providers, voice, system actions</li>
       </ul>
     </section>
   );

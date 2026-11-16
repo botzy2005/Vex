@@ -1,5 +1,7 @@
 import type {
   AssistantState,
+  LyricsFetchResult,
+  LyricsQuery,
   MediaState,
   MonitorInfo,
   Settings,
@@ -34,6 +36,12 @@ export interface Backend {
   onMedia(cb: (s: MediaState) => void): Promise<Unsub>;
   /** Rejects when the command is unsupported or no backend exists. */
   mediaTransport(cmd: TransportCommand): Promise<void>;
+
+  /**
+   * Automatic synced-lyrics lookup (LRCLIB, done natively). Resolves null when
+   * the track has none or lookup is switched off; rejects on network failure.
+   */
+  lyricsFetch(track: LyricsQuery): Promise<LyricsFetchResult | null>;
 
   /** Rejects with a human-readable reason when no AI provider is connected (Milestone 5). */
   assistantSend(text: string): Promise<void>;

@@ -16,8 +16,8 @@ html[data-backend='test'] body::after {
 .stage {
   position: relative; width: 100%; height: 100%;
   --fg: #fff; --fg-dim: rgba(255, 255, 255, 0.64); --fg-faint: rgba(255, 255, 255, 0.34);
-  --surface-top: 36, 36, 40; --surface-bottom: 8, 8, 10;
-  --edge: rgba(255, 255, 255, 0.09); --hl: rgba(255, 255, 255, 0.15);
+  --surface-top: 14, 14, 16; --surface-bottom: 0, 0, 0;
+  --edge: rgba(255, 255, 255, 0.07); --hl: rgba(255, 255, 255, 0.1);
   --chip: rgba(255, 255, 255, 0.08); --chip-strong: rgba(255, 255, 255, 0.16);
   --btn-bg: #fff; --btn-fg: #0a0a0c; --face: #fff;
   --accent: #0a84ff; --glass: 0.92; --speed: 1;
@@ -42,14 +42,17 @@ html[data-backend='test'] body::after {
   box-shadow: inset 0 1px 0 var(--hl), inset 0 0 0 1px var(--edge), 0 6px 14px rgba(0, 0, 0, 0.36);
   will-change: width, height;
 }
-/* Soft glow tinted by the artwork accent, plus a faint specular sheen. */
+/* Ambient glow: slow drifting colour from the artwork, only while expanded; compact stays pure black. */
 .island::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
+  content: ''; position: absolute; inset: -25%; pointer-events: none; opacity: 0; transition: opacity 0.7s ease;
   background:
-    radial-gradient(120% 100% at 0% 100%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 40%);
+    radial-gradient(42% 52% at 22% 66%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 72%),
+    radial-gradient(38% 46% at 86% 14%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 72%);
+  animation: drift 11s ease-in-out infinite alternate;
 }
-.island:not([data-view='idle'])::before { opacity: 1; }
+@keyframes drift { from { transform: translate(-3%, 2%) rotate(0deg) scale(1); } to { transform: translate(4%, -3%) rotate(6deg) scale(1.08); } }
+.island[data-view='expanded']::before { opacity: 1; }
+.island[data-view='lyrics']::before { opacity: 0.35; }
 .island[data-shape='notch'] { box-shadow: inset 0 -1px 0 var(--hl), inset 0 0 0 1px var(--edge), 0 6px 14px rgba(0, 0, 0, 0.36); }
 
 .content { position: absolute; top: 0; left: 50%; transform-origin: 50% 0; }
@@ -89,7 +92,9 @@ html[data-backend='test'] body::after {
 .artwork img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .artwork.mini { width: 24px; height: 24px; border-radius: 7px; }
 .artwork.side { width: 56px; height: 56px; border-radius: 12px; }
-.artwork.large { width: 124px; height: 124px; border-radius: 16px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4); }
+.artwork.large { width: 136px; height: 136px; border-radius: 18px; position: relative; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5); }
+.art-wrap { position: relative; flex: none; width: 136px; height: 136px; }
+.art-glow { position: absolute; inset: 10px -6px -14px; width: calc(100% + 12px); height: calc(100% + 4px); object-fit: cover; border-radius: 22px; filter: blur(22px) saturate(1.8); opacity: 0.6; pointer-events: none; }
 
 /* Now-playing indicator (play/pause state only; not audio-reactive). */
 .viz { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; flex: none; }
@@ -127,10 +132,10 @@ html[data-backend='test'] body::after {
 .empty strong { color: var(--fg); font-size: 14px; }
 .empty code { background: var(--chip-strong); padding: 0 4px; border-radius: 4px; }
 
-.music-panel { display: flex; gap: 16px; height: 100%; }
+.music-panel { display: flex; gap: 18px; height: 100%; }
 .music-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0 0; }
 .title-row { display: flex; align-items: center; gap: 8px; }
-.title { font-size: 16px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title { font-size: 17px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artist { font-size: 13px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .progress { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
 .bar { position: relative; flex: 1; height: 16px; cursor: pointer; touch-action: none; }
@@ -178,3 +183,36 @@ html[data-backend='test'] body::after {
 }
 .assistant-form input:focus { border-color: var(--accent); }
 .assistant-form input::placeholder { color: var(--fg-faint); }
+
+/* ---------- per-letter lyrics ---------- */
+.letters { display: inline; }
+.lw { display: inline-block; white-space: nowrap; }
+.lt {
+  display: inline-block; white-space: pre;
+  animation: letter-in calc(520ms / var(--speed, 1)) cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) both;
+}
+/* --l is how "sung" the letter is (0..1), --g peaks while the sweep passes over it. */
+.lf {
+  display: inline-block; --l: 0; --g: 0;
+  opacity: calc(0.34 + 0.66 * var(--l));
+  transform: translateY(calc(var(--g) * -1.5px)) scale(calc(1 + var(--g) * 0.08));
+  text-shadow: 0 0 calc(var(--g) * 10px) color-mix(in srgb, var(--accent) 70%, #fff);
+}
+@keyframes letter-in {
+  from { opacity: 0; transform: translateY(0.7em) scale(0.8); filter: blur(5px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.lyr-line[data-dist='0'] .lf { opacity: calc(0.4 + 0.6 * var(--l)); }
+.compact-letters {
+  height: 20px; line-height: 20px; font-size: 13px; font-weight: 650; text-align: center; white-space: nowrap; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+
+/* lyric peek inside the player */
+.peek { min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
+.peek-now { font-size: 15px; font-weight: 700; line-height: 1.25; max-height: 38px; overflow: hidden; }
+.peek-next { font-size: 12px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peek-hint { font-size: 12px; color: var(--fg-faint); }
+.peek-fade { animation: view-in 0.35s ease both; display: inline-block; }
+.plain-note { font-size: 11px; color: var(--fg-faint); padding-bottom: 4px; }
+.plain-text { flex: 1; overflow-y: auto; white-space: pre-wrap; color: var(--fg-dim); line-height: 1.5; user-select: text; scrollbar-width: thin; }
