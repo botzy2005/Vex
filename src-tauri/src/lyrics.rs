@@ -1,7 +1,7 @@
-//! Network side of lyrics lookup. All matching logic lives in `islet_core::lyrics`;
+//! Network side of lyrics lookup. All matching logic lives in `vex_core::lyrics`;
 //! this file only performs HTTPS GETs with an identifying User-Agent.
 
-use islet_core::lyrics::{HttpGet, LookupError, LyricsClient, LyricsResult, TrackQuery};
+use vex_core::lyrics::{HttpGet, LookupError, LyricsClient, LyricsResult, TrackQuery};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -13,7 +13,7 @@ impl UreqGet {
     fn new() -> Self {
         let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(8))
-            .user_agent(concat!("Islet/", env!("CARGO_PKG_VERSION"), " (https://github.com/botzy2005/islet)"))
+            .user_agent(concat!("VEX/", env!("CARGO_PKG_VERSION"), " (https://github.com/botzy2005/islet)"))
             .build();
         Self { agent }
     }

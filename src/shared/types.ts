@@ -1,4 +1,4 @@
-// TypeScript mirror of the Rust settings schema (crates/islet-core/src/settings.rs).
+// TypeScript mirror of the Rust settings schema (crates/vex-core/src/settings.rs).
 // src/shared/defaults.json is verified against Rust's Settings::default() by a cargo test.
 
 export type Theme = 'dark' | 'light' | 'system';

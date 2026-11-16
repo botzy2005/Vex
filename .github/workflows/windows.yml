@@ -21,9 +21,9 @@ jobs:
       # only proves the integration is reachable; it is informational and must not block the build.
       - name: Windows media API smoke test
         continue-on-error: true
-        run: cargo test -p islet -- --ignored --nocapture
+        run: cargo test -p vex -- --ignored --nocapture
       - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
-          name: islet-windows-installer
+          name: vex-windows-installer
           path: target/release/bundle/nsis/*.exe

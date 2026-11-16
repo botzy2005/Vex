@@ -2,9 +2,9 @@
 //!
 //! This is the only Windows-specific media code. It reads the OS state and forwards commands;
 //! all decisions (which session to show, position maths, change detection, artwork caching)
-//! live in `islet_core::media` where they are unit-tested.
+//! live in `vex_core::media` where they are unit-tested.
 
-use islet_core::media::{
+use vex_core::media::{
     compute_timeline, pick_session, windows_ticks_to_epoch_ms, Candidate, Capabilities,
     MediaSession, MediaSource, PlaybackStatus, TransportCommand,
 };

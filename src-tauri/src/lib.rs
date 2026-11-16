@@ -1,4 +1,4 @@
-//! Tauri shell for Islet (Milestone 1).
+//! Tauri shell for VEX (Milestone 1).
 //!
 //! Responsibilities in this milestone: create and position the island window,
 //! own the persisted settings, register the global hotkey, provide the tray
@@ -11,7 +11,7 @@ mod media;
 #[cfg(windows)]
 mod media_windows;
 
-use islet_core::{
+use vex_core::{
     lyrics::{LyricsResult, TrackQuery},
     media::{MediaState, TransportCommand},
     placement::{island_rect, pick_monitor, MonitorRect},
@@ -196,7 +196,7 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
-        .title("Islet Settings")
+        .title("VEX Settings")
         .inner_size(860.0, 620.0)
         .min_inner_size(680.0, 480.0)
         .center()
@@ -273,7 +273,7 @@ pub fn run() {
             let store = SettingsStore::new(dir.join("settings.json"));
             let loaded = store.load();
             if loaded.recovered_from_corrupt {
-                eprintln!("islet: settings.json was unreadable; moved aside and defaults restored");
+                eprintln!("vex: settings.json was unreadable; moved aside and defaults restored");
             }
             let hotkey = loaded.settings.island.hotkey.clone();
             app.manage(AppState {
@@ -286,7 +286,7 @@ pub fn run() {
             app.manage(lyrics::LyricsHandle::new());
 
             if let Some(w) = register_hotkey(app.handle(), &hotkey) {
-                eprintln!("islet: {w}");
+                eprintln!("vex: {w}");
             }
 
             // Tray menu: the island has no taskbar button, so this is the
@@ -299,7 +299,7 @@ pub fn run() {
                 None::<&str>,
             )?;
             let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit Islet", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit VEX", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
                 &[
@@ -310,7 +310,7 @@ pub fn run() {
                 ],
             )?;
             let mut tray = TrayIconBuilder::new()
-                .tooltip("Islet")
+                .tooltip("VEX")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "toggle" => toggle_island(app),
@@ -349,12 +349,12 @@ pub fn run() {
             assistant_preview_state,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Islet");
+        .expect("error while running VEX");
 }
 
 #[cfg(test)]
 mod tests {
-    use islet_core::settings::DEFAULT_HOTKEY;
+    use vex_core::settings::DEFAULT_HOTKEY;
     use tauri_plugin_global_shortcut::Shortcut;
 
     #[test]

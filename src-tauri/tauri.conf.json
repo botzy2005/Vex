@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Islet",
+  "productName": "VEX",
   "version": "0.1.0",
-  "identifier": "app.islet.desktop",
+  "identifier": "com.vex.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "island",
-        "title": "Islet",
+        "title": "VEX",
         "url": "index.html",
         "width": 260,
         "height": 60,
@@ -35,6 +35,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "publisher": "VEX",
+    "shortDescription": "VEX: a Dynamic Island for Windows",
+    "copyright": "Copyright (c) 2026 VEX contributors",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

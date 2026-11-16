@@ -3,7 +3,7 @@
 ```
 ┌────────────────────────── Tauri shell (src-tauri, Rust) ──────────────────────────┐
 │ window placement · settings state · tray · global shortcut · command surface      │
-│   uses ▶ crates/islet-core  (pure Rust: settings schema, store, placement maths)  │
+│   uses ▶ crates/vex-core  (pure Rust: settings schema, store, placement maths)  │
 └───────────────▲──────────────────────────────────────────────▲────────────────────┘
         invoke / events                                        │ invoke / events
 ┌───────────────┴────────────────┐                ┌────────────┴─────────────┐
@@ -16,7 +16,7 @@
   `tauri.ts` maps it onto Rust commands. `test.ts` is an in-browser stand-in used by `npm run dev:browser`
   and the automated UI tests; it is compiled out of production builds.
 * **Settings** — Rust is the source of truth. The UI sends RFC 7386 merge patches (`null` resets a field),
-  Rust validates/clamps, writes atomically to `%APPDATA%\app.islet.desktop\settings.json`, then broadcasts
+  Rust validates/clamps, writes atomically to `%APPDATA%\com.vex.desktop\settings.json`, then broadcasts
   `settings-changed` to every window. `src/shared/defaults.json` is checked against Rust defaults by a test.
 * **Island window** — one small transparent always-on-top window. The UI springs the island's size inside it and
   tells Rust (`set_island_size`) how big the window must be; Rust re-centres it on the chosen monitor with DPI maths.
@@ -27,7 +27,7 @@
 ## Interfaces waiting for later milestones
 | Interface | Today | Fulfilled by |
 |---|---|---|
-| `LyricsProvider` (`src/lyrics/provider.ts`) | user `.lrc` files, then LRCLIB (native fetch in `src-tauri/src/lyrics.rs`, logic in `islet-core::lyrics`) | more providers / manual search |
+| `LyricsProvider` (`src/lyrics/provider.ts`) | user `.lrc` files, then LRCLIB (native fetch in `src-tauri/src/lyrics.rs`, logic in `vex-core::lyrics`) | more providers / manual search |
 | `assistant_send` / `assistant-state` event | sending reports "No AI provider is connected yet" | M5 (providers), M6 (voice) |
 | Settings `ai.*` | stored, not used | M5 |
 
@@ -36,7 +36,7 @@
 Windows SMTC ─▶ media_windows.rs (reads state, forwards commands)      ← only Windows-specific code
                     │ implements MediaSource
                     ▼
-        islet_core::media::MediaEngine   pick session · position maths · change detection · artwork cache
+        vex_core::media::MediaEngine   pick session · position maths · change detection · artwork cache
                     ▲ run_loop (own thread, 500 ms active / 1.5 s idle / 120 ms after a command)
                     │
         src-tauri/src/media.rs ──▶ `media-state` event + `media_get_state` / `media_transport` commands ──▶ UI

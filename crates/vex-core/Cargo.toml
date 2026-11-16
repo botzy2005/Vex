@@ -1,9 +1,9 @@
 [package]
-name = "islet-core"
+name = "vex-core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Platform-neutral core of Islet: settings schema, persistence and window placement math."
+description = "Platform-neutral core of VEX: settings schema, persistence and window placement math."
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

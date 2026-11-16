@@ -1,7 +1,7 @@
 # Third-party notices and provenance
 
 ## Origin of the code
-Everything in this repository was written for Islet. **No source code, assets, icons, names or
+Everything in this repository was written for VEX. **No source code, assets, icons, names or
 copy were taken from Notchify, Fenn/Nook, Oyenza Studio, QNotch, V-Notch, DynamicWin or any other
 reference project.** Those projects were studied only through their public descriptions to decide
 which features a Windows "Dynamic Island" app commonly offers.

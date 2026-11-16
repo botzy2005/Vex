@@ -1,6 +1,6 @@
 //! Runs the media engine on its own thread and bridges it to Tauri.
 
-use islet_core::media::{
+use vex_core::media::{
     run_loop, MediaEngine, MediaState, Msg, TransportCommand, UnavailableSource,
 };
 use std::{
@@ -44,7 +44,7 @@ pub fn start(app: AppHandle) -> MediaHandle {
     let shared = state.clone();
 
     std::thread::Builder::new()
-        .name("islet-media".into())
+        .name("vex-media".into())
         .spawn(move || {
             let on_state = move |s: &MediaState| {
                 *shared.lock().unwrap() = s.clone();
@@ -56,7 +56,7 @@ pub fn start(app: AppHandle) -> MediaHandle {
                 match crate::media_windows::WindowsSource::new() {
                     Ok(source) => run_loop(MediaEngine::new(source), rx, on_state, now_ms),
                     Err(e) => {
-                        eprintln!("islet: Windows media sessions are unavailable: {e}");
+                        eprintln!("vex: Windows media sessions are unavailable: {e}");
                         let msg = format!("Windows media sessions are unavailable: {e}");
                         run_loop(
                             MediaEngine::new(UnavailableSource(msg)),

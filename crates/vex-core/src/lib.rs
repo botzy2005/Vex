@@ -1,4 +1,4 @@
-//! Platform-neutral core of Islet.
+//! Platform-neutral core of VEX.
 //!
 //! Everything here is pure logic so it can be unit-tested on any OS:
 //! the settings schema (with sanitising and merge-patch updates), atomic

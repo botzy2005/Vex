@@ -84,7 +84,7 @@ export function LyricsView({
         {lyrics.status === 'error' && (
           <>
             <strong>Couldn't reach the lyrics service</strong>
-            <span>Check your connection. Islet will try again shortly.</span>
+            <span>Check your connection. VEX will try again shortly.</span>
             <button className="pill-btn" onClick={lyrics.retry} data-testid="retry-lyrics">Try again</button>
             {loadBtn}
           </>

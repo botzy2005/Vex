@@ -30,7 +30,7 @@ export function SettingsApp() {
   return (
     <div className="settings" data-testid="settings">
       <aside>
-        <h1>Islet</h1>
+        <h1>VEX</h1>
         <nav>
           {PAGES.map((p) => (
             <button key={p.id} data-active={page === p.id} data-testid={`page-${p.id}`} onClick={() => setPage(p.id)}>{p.label}</button>
@@ -165,9 +165,9 @@ function AssistantPage({ s, update }: { s: Settings; update: Update }) {
 function AboutPage() {
   return (
     <section>
-      <h2>About Islet</h2>
-      <p>Islet is a free Dynamic Island for Windows. Island shell, live Windows media controls, automatic synced lyrics, assistant face and settings.</p>
-      <p className="dim">Islet is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile. The only network request Islet makes is the optional lyrics lookup on LRCLIB (song title, artist, album and length), which you can turn off in Music & lyrics.</p>
+      <h2>About VEX</h2>
+      <p>VEX is a free Dynamic Island for Windows. Island shell, live Windows media controls, automatic synced lyrics, assistant face and settings.</p>
+      <p className="dim">VEX is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile. The only network request VEX makes is the optional lyrics lookup on LRCLIB (song title, artist, album and length), which you can turn off in Music & lyrics.</p>
       <h3>Roadmap</h3>
       <ul>
                 <li>Milestone 5–7 — AI providers, voice, system actions</li>

@@ -31,7 +31,7 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [ ] **Not yet verified with a real player (needs a human at a Windows PC):** title/artist/artwork from Spotify and a browser tab, play/pause/next/previous, seeking by clicking the bar or a lyric line, progress staying in sync, switching between two open players
 
 ## Milestone 3 — automatic lyrics, letter animation, redesign
-- [x] LRCLIB lookup logic in `islet-core::lyrics`: title/artist cleaning, URL building, duration-checked candidate scoring, miss cache (errors not cached) — 14 Rust tests with a fake HTTP layer
+- [x] LRCLIB lookup logic in `vex-core::lyrics`: title/artist cleaning, URL building, duration-checked candidate scoring, miss cache (errors not cached) — 14 Rust tests with a fake HTTP layer
 - [x] `lyrics_fetch` Tauri command with `ureq` and an identifying User-Agent; honours the `lyricsOnline` setting (off = nothing leaves the PC)
 - [x] Provider chain: your own .lrc first, then LRCLIB; plain-only, instrumental, not-found and network-error states are shown honestly; auto-retry after 20 s
 - [x] Per-letter animation (`LetterLine`): staggered rise-in, left-to-right sweep. Follows real word timing when the lyrics have it; for plain LRC the sweep speed is an **estimate** (~70 ms/letter, capped by the line length) — 6 unit tests

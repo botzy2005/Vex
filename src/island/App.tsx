@@ -178,7 +178,7 @@ export function IslandApp() {
                   <button className="icon-btn small" aria-label="Settings" title="Settings" data-testid="btn-settings" onClick={() => void backend.openSettings()}>
                     <GearIcon width={15} height={15} />
                   </button>
-                  <button className="icon-btn small" aria-label="Quit Islet" title="Quit Islet" data-testid="btn-quit" onClick={() => void backend.quit()}>
+                  <button className="icon-btn small" aria-label="Quit VEX" title="Quit VEX" data-testid="btn-quit" onClick={() => void backend.quit()}>
                     <PowerIcon width={15} height={15} />
                   </button>
                 </div>

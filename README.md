@@ -1,4 +1,4 @@
-# Islet — a free Dynamic Island for Windows
+# VEX — a free Dynamic Island for Windows
 
 A floating pill at the top of your screen that expands into a music player with synced lyrics and an AI assistant.
 Built with **Tauri 2 (Rust) + React/TypeScript** (WebView2). MIT licensed. See `NOTICE.md` for provenance — this is an
@@ -19,7 +19,7 @@ independent project, not affiliated with Notchify, Fenn or any other app.
    npm run tauri dev        # run with live reload
    npm run tauri build      # produce the installer
    ```
-   The installer lands in `target\release\bundle\nsis\Islet_0.1.0_x64-setup.exe` (per-user install, no admin rights; uninstall from Windows Settings).
+   The installer lands in `target\release\bundle\nsis\VEX_0.1.0_x64-setup.exe` (per-user install, no admin rights; uninstall from Windows Settings).
 
 The island appears at the top-centre of your primary display. **Hover** it (or click it, or press **Ctrl+Alt+I**) to expand.
 The tray icon has *Settings…* and *Quit*.
@@ -44,7 +44,7 @@ A GitHub Actions workflow (`.github/workflows/windows.yml`) runs everything and 
 
 ## Layout
 ```
-crates/islet-core/   pure Rust: settings schema, store, placement maths (unit-tested)
+crates/vex-core/   pure Rust: settings schema, store, placement maths (unit-tested)
 src-tauri/           Tauri shell: windows, tray, hotkey, commands
 src/island/          island UI, spring animation, layout/state priority
 src/lyrics/          LRC parser, sync maths, provider interface, lyric views
