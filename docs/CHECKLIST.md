@@ -51,6 +51,17 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [ ] **Not verified (needs your PC):** a real Ollama conversation and model list; real OpenAI / Gemini / OpenRouter / Claude replies with a valid key (their hosts are not reachable from the build sandbox, so those parsers are checked against the documented wire formats only); Windows Credential Manager round trip beyond the CI check; chat UI look and feel inside the real transparent window
 - [ ] Not done: clickable links in replies (shown as text with the address), proxy support, voice (Milestone 6)
 
+## AI performance work (local Ollama)
+- [x] **Likely cause found in the code:** the old Ollama request was only `{model, stream, messages}`: no `think` setting (reasoning models such as Qwen think by default), no `keep_alive`, no context size; and the parser read only `message.content`, so hidden reasoning produced no visible sign of life for the whole thinking time. **Not yet confirmed by a measurement on the target laptop.**
+- [x] Request now sends `think` (default off), `keep_alive` (default 30 min) and `num_ctx` (default 4096); GPU layers are left to Ollama (not forced). All three are settings.
+- [x] History and shared music context are trimmed to the context window (a prompt longer than `num_ctx` is cut by Ollama and slow to read).
+- [x] Hidden reasoning is reported as progress ("Thinking · 12s"), never shown or stored; a silent wait shows elapsed time; Stop is immediate even while Ollama is silent.
+- [x] Streamed text is applied once per frame instead of once per chunk; repeated Enter sends exactly one request.
+- [x] Per-request measurements (numbers only, never text or keys) in Settings → Developer: first word, thinking time, total, load, tokens, tokens/s, payload size, messages, prompt size, settings used.
+- [x] Developer speed test: same prompt straight to Ollama and through VEX, per installed model, optional thinking-on pass, capped at 128 tokens, never downloads.
+- [x] Measured (stand-in server, automated): VEX's pipeline adds ~0 ms to the first word and ~1 ms in total versus a bare request (`cargo test -p vex adds_negligible_latency -- --nocapture`).
+- [ ] **Needs the target laptop:** real before/after times, tokens/s and the 2B vs 4B comparison for qwen3.5 on the RTX 3050 (4 GB). Use Settings → Developer → Ollama speed test.
+
 ## Milestones not started
 - [ ] M4 Remaining settings (startup, notifications, privacy, wallpaper accent)
 - [ ] M6 Voice in/out

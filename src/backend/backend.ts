@@ -2,6 +2,8 @@ import type {
   AiEvent,
   AiTestResult,
   AssistantState,
+  BenchRow,
+  MetricsView,
   ContextPayload,
   Conversation,
   ConversationSummary,
@@ -68,6 +70,15 @@ export interface Backend {
   aiListModels(provider: string): Promise<string[]>;
   /** Check the connection / key. Never rejects for an expected failure: `ok` is false with a message. */
   aiTest(provider: string): Promise<AiTestResult>;
+
+  /** Timing of the most recent chat requests (numbers only). */
+  aiMetrics(): Promise<MetricsView>;
+  aiMetricsClear(): Promise<void>;
+  /** Load an installed Ollama model into memory now (never downloads). */
+  aiPreload(model: string): Promise<BenchRow>;
+  /** Run the same short prompt direct-to-Ollama and through VEX for each model. Rows also arrive via onBenchRow. */
+  aiBenchmark(models: string[], includeThinking: boolean): Promise<BenchRow[]>;
+  onBenchRow(cb: (row: BenchRow) => void): Promise<Unsub>;
 
   chatList(): Promise<ConversationSummary[]>;
   chatGet(id: string): Promise<Conversation | null>;

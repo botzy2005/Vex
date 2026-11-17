@@ -58,3 +58,15 @@ input[type='password']:focus { outline: 2px solid var(--accent); outline-offset:
 .status-line { margin: 2px 0 8px; padding: 8px 12px; border-radius: 8px; background: var(--chip); font-size: 12.5px; line-height: 1.45; user-select: text; }
 .status-line[data-ok='true'] { border-left: 3px solid #4cc38a; }
 .status-line[data-ok='false'], .status-line.bad { border-left: 3px solid #e5534b; color: #ff7b72; }
+
+/* ---------- developer page ---------- */
+.dev-head { display: flex; align-items: center; gap: 12px; }
+.dev-head h3 { margin: 14px 0 6px; flex: 1; }
+.table-wrap { overflow-x: auto; margin: 8px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+.dev-table { border-collapse: collapse; width: 100%; font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dev-table th, .dev-table td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+.dev-table th { color: var(--dim); font-weight: 600; cursor: help; }
+.dev-table td.good { color: #3fb950; }
+.dev-table td.bad { color: #ff7b72; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.bench-models { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.bench-models label { display: flex; align-items: center; gap: 8px; }

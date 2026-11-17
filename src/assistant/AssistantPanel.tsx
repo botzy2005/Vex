@@ -36,6 +36,23 @@ function Bubble({ m }: { m: ChatMessage }) {
   );
 }
 
+/** What the reader sees while no answer text exists yet: dots plus honest elapsed time. */
+function WaitNote({ phase, startedAt }: { phase: 'waiting' | 'thinking'; startedAt: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, []);
+  const secs = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
+  const label = phase === 'thinking' ? 'Thinking' : secs >= 4 ? 'Waiting for the model (it may be loading)' : 'Starting';
+  return (
+    <div className="msg" data-role="assistant" data-testid="typing" data-phase={phase}>
+      <div className="typing" aria-label="VEX is thinking"><i /><i /><i /></div>
+      <div className="wait-note" data-testid="wait-note">{label}{secs >= 2 ? ` · ${secs}s` : ''}</div>
+    </div>
+  );
+}
+
 export function AssistantPanel({
   assistant,
   chat,
@@ -155,11 +172,7 @@ export function AssistantPanel({
             </div>
           )}
           {chat.messages.map((m, i) => <Bubble key={`${m.tsMs}-${i}`} m={m} />)}
-          {chat.phase === 'waiting' && (
-            <div className="msg" data-role="assistant" data-testid="typing">
-              <div className="typing" aria-label="VEX is thinking"><i /><i /><i /></div>
-            </div>
-          )}
+          {(chat.phase === 'waiting' || chat.phase === 'thinking') && <WaitNote phase={chat.phase} startedAt={chat.startedAt} />}
           {chat.streaming !== null && (
             <div className="msg streaming" data-role="assistant" data-testid="msg-streaming">
               <Markdown text={chat.streaming} />

@@ -38,6 +38,9 @@
     "ollamaEndpoint": "http://localhost:11434",
     "compatibleBaseUrl": "",
     "contextOnRequest": true,
+    "ollamaThink": false,
+    "ollamaKeepAlive": "30m",
+    "ollamaNumCtx": 4096,
     "systemPrompt": "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short."
   }
 }

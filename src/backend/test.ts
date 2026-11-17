@@ -10,6 +10,8 @@ import defaults from '../shared/defaults.json';
 import { mergePatch } from '../shared/merge';
 import type {
   AiEvent,
+  BenchRow,
+  MetricsView,
   AiTestResult,
   AssistantState,
   ChatMessage,
@@ -33,6 +35,10 @@ export interface AiScript {
   delayMs?: number;
   /** Make the reply fail after the chunks (or immediately when there are none). */
   error?: { message: string; kind?: string };
+  /** Silence before anything arrives, like a model that is still loading. */
+  silentMs?: number;
+  /** Then hidden reasoning for this long, reported as 'thinking' events. */
+  thinkingMs?: number;
 }
 
 export interface Harness {
@@ -49,6 +55,12 @@ export interface Harness {
   readonly windowSizes: Array<[number, number]>;
   /** Script the simulated model: reply chunks, per-chunk delay, or an error. */
   setAiScript(script: AiScript): void;
+  /** Seed the simulated measurements shown on the Developer page. */
+  setMetrics(v: MetricsView): void;
+  /** Rows the simulated benchmark will report (one per call, in order). */
+  setBenchRows(rows: BenchRow[]): void;
+  readonly benchCalls: Array<{ models: string[]; includeThinking: boolean }>;
+  readonly preloadCalls: string[];
   /** Simulated Ollama service: whether it runs and which models it has installed. */
   setOllama(o: { running: boolean; models: string[] }): void;
   /** Keys the simulated provider accepts (anything else is rejected as invalid). */
@@ -83,6 +95,11 @@ export function createTestBackend(): Backend {
   const calls: TransportCommand[] = [];
   const sizes: Array<[number, number]> = [];
   const aiSends: Harness['aiSends'] = [];
+  let metrics: MetricsView = { requests: [], requestsSent: 0 };
+  let benchRows: BenchRow[] = [];
+  const benchCalls: Harness['benchCalls'] = [];
+  const preloadCalls: string[] = [];
+  const benchSubs = new Set<(r: BenchRow) => void>();
   let script: AiScript = { chunks: ['Hello', ' from ', 'the test model.'], delayMs: 30 };
   let ollama = { running: true, models: ['llama3.2:latest', 'qwen2.5:0.5b'] };
   let validKeys = ['good-key-123'];
@@ -168,6 +185,14 @@ export function createTestBackend(): Backend {
     setValidKeys: (k) => {
       validKeys = k;
     },
+    setMetrics: (v) => {
+      metrics = v;
+    },
+    setBenchRows: (rows) => {
+      benchRows = rows;
+    },
+    benchCalls,
+    preloadCalls,
     aiSends,
     restartAi: () => {
       activeCancel = null;
@@ -264,6 +289,17 @@ export function createTestBackend(): Backend {
           activeCancel = null;
           emitAi({ requestId, conversationId: convId, kind, ...extra });
         };
+        if (sc.silentMs) await new Promise((r) => setTimeout(r, sc.silentMs));
+        if (flag.cancelled) return finish('cancelled');
+        if (sc.thinkingMs) {
+          const end = Date.now() + sc.thinkingMs;
+          let chars = 0;
+          while (Date.now() < end && !flag.cancelled) {
+            await new Promise((r) => setTimeout(r, 40));
+            chars += 120;
+            emitAi({ requestId, conversationId: convId, kind: 'thinking', thinkingChars: chars });
+          }
+        }
         for (const chunk of sc.chunks ?? []) {
           await new Promise((r) => setTimeout(r, sc.delayMs ?? 30));
           if (flag.cancelled) return finish('cancelled');
@@ -280,6 +316,24 @@ export function createTestBackend(): Backend {
       if (activeCancel) activeCancel.cancelled = true;
     },
     onAiEvent: (cb) => sub(aiSubs, cb),
+    aiMetrics: async () => metrics,
+    aiMetricsClear: async () => {
+      metrics = { requests: [], requestsSent: metrics.requestsSent };
+    },
+    async aiPreload(model) {
+      preloadCalls.push(model);
+      return benchRows.find((r) => r.mode === 'preload' && r.model === model) ?? { model, think: false, mode: 'preload', ok: true, error: null, wallMs: 1200, headersMs: 1200, firstThinkingMs: null, firstTokenMs: null, visibleChars: 0, thinkingChars: 0, payloadBytes: 80, usage: null };
+    },
+    async aiBenchmark(models, includeThinking) {
+      benchCalls.push({ models, includeThinking });
+      const rows = benchRows.filter((r) => models.includes(r.model));
+      for (const r of rows) {
+        await new Promise((res) => setTimeout(res, 60));
+        benchSubs.forEach((cb) => cb(r));
+      }
+      return rows;
+    },
+    onBenchRow: (cb) => sub(benchSubs, cb),
     aiKeyStatus: async (p) => keys.has(p),
     async aiSetKey(p, k) {
       if (!k.trim() || /\s/.test(k.trim())) throw new Error('API keys can\'t contain spaces or line breaks. Paste just the key.');

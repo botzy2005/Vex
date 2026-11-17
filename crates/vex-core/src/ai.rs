@@ -8,11 +8,13 @@
 //! [`HttpSpec`]'s `Debug` output redacts headers, and every error message that
 //! could echo provider output is passed through [`scrub`].
 
+use crate::perf::{usage_from_ollama, Timing, UsageStats};
 use crate::settings::{Ai, AiProvider};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 // ------------------------------------------------------------------ basics
 
@@ -191,6 +193,68 @@ fn check_ready(p: AiProvider, model: Option<&str>, key: Option<&str>) -> Result<
 }
 
 /// Build the streaming chat request for `p`.
+/// Ollama-only generation settings. Defaults favour a laptop: no hidden reasoning, model kept loaded,
+/// a modest context window, and no forced GPU layer count (Ollama decides what fits in VRAM).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tuning {
+    pub think: bool,
+    pub keep_alive: String,
+    pub num_ctx: u32,
+    /// Hard cap on generated tokens (used by the benchmark so a test can never run away).
+    pub num_predict: Option<u32>,
+}
+
+impl Default for Tuning {
+    fn default() -> Self {
+        Self { think: false, keep_alive: "30m".into(), num_ctx: 4096, num_predict: None }
+    }
+}
+
+impl Tuning {
+    pub fn from_settings(ai: &Ai) -> Self {
+        Self { think: ai.ollama_think, keep_alive: ai.ollama_keep_alive.clone(), num_ctx: ai.ollama_num_ctx, num_predict: None }
+    }
+
+    /// Ollama wants `-1`/`0` as numbers and everything else as a duration string.
+    pub fn keep_alive_json(&self) -> Value {
+        match self.keep_alive.as_str() {
+            "-1" => json!(-1),
+            "0" => json!(0),
+            other => json!(other),
+        }
+    }
+
+    /// The `options` object for Ollama requests.
+    pub fn options_json(&self) -> Value {
+        let mut o = json!({"num_ctx": self.num_ctx});
+        if let Some(n) = self.num_predict {
+            o["num_predict"] = json!(n);
+        }
+        o
+    }
+}
+
+/// How much conversation to send. For Ollama the budget follows the context window: a prompt larger than
+/// `num_ctx` is silently cut by Ollama (and slow to read), so we trim it ourselves, newest messages first.
+pub fn history_budget(p: AiProvider, num_ctx: u32) -> (usize, usize) {
+    if p == AiProvider::Ollama {
+        // ~4 chars per token; use 40% of the window for history, leaving room for the system prompt,
+        // any shared music context and the reply.
+        (12, (num_ctx as usize * 4 * 2 / 5).max(1500))
+    } else {
+        (20, 24_000)
+    }
+}
+
+/// Cap on shared app context (song/lyrics) per message, in characters.
+pub fn context_cap(p: AiProvider, num_ctx: u32) -> usize {
+    if p == AiProvider::Ollama {
+        ((num_ctx as usize * 4) / 5).clamp(1000, 8000)
+    } else {
+        8000
+    }
+}
+
 pub fn chat_request(
     p: AiProvider,
     base: &str,
@@ -198,6 +262,18 @@ pub fn chat_request(
     system: &str,
     turns: &[ChatTurn],
     key: Option<&str>,
+) -> Result<HttpSpec, AiError> {
+    chat_request_with(p, base, model, system, turns, key, &Tuning::default())
+}
+
+pub fn chat_request_with(
+    p: AiProvider,
+    base: &str,
+    model: &str,
+    system: &str,
+    turns: &[ChatTurn],
+    key: Option<&str>,
+    tuning: &Tuning,
 ) -> Result<HttpSpec, AiError> {
     check_ready(p, Some(model), key)?;
     let role = |r: Role| match r {
@@ -230,7 +306,17 @@ pub fn chat_request(
             method: Method::Post,
             url: format!("{base}/api/chat"),
             headers: json_headers(vec![]),
-            body: Some(json!({"model": model, "stream": true, "messages": with_system(turns)}).to_string()),
+            body: Some(
+                json!({
+                    "model": model,
+                    "stream": true,
+                    "think": tuning.think,
+                    "keep_alive": tuning.keep_alive_json(),
+                    "options": tuning.options_json(),
+                    "messages": with_system(turns),
+                })
+                .to_string(),
+            ),
         },
         AiProvider::Gemini => {
             let contents: Vec<Value> = turns
@@ -354,6 +440,10 @@ pub fn parse_models(p: AiProvider, body: &str) -> Result<Vec<String>, AiError> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StreamEvent {
     Delta(String),
+    /// Hidden reasoning from a thinking model (only its size is kept, never the text).
+    Thinking(usize),
+    /// Ollama's own statistics from the last chunk.
+    Usage(UsageStats),
     Done,
     Error(String),
 }
@@ -415,8 +505,16 @@ fn ollama_events(v: &Value) -> Vec<StreamEvent> {
     if let Some(e) = error_text(v) {
         return vec![StreamEvent::Error(e)];
     }
-    let mut out = delta(v["message"]["content"].as_str().unwrap_or(""));
+    let mut out = vec![];
+    let thinking = v["message"]["thinking"].as_str().unwrap_or("");
+    if !thinking.is_empty() {
+        out.push(StreamEvent::Thinking(thinking.chars().count()));
+    }
+    out.extend(delta(v["message"]["content"].as_str().unwrap_or("")));
     if v["done"].as_bool() == Some(true) {
+        if let Some(u) = usage_from_ollama(v) {
+            out.push(StreamEvent::Usage(u));
+        }
         out.push(StreamEvent::Done);
     }
     out
@@ -552,6 +650,22 @@ pub struct ChatRun {
     pub text: String,
     pub cancelled: bool,
     pub error: Option<AiError>,
+    pub timing: Timing,
+    pub usage: Option<UsageStats>,
+}
+
+/// Receives what arrives while a reply streams in.
+pub trait StreamSink {
+    fn delta(&mut self, text: &str);
+    /// Hidden reasoning is arriving (`chars` = size of this chunk).
+    fn thinking(&mut self, _chars: usize) {}
+}
+
+struct DeltaOnly<'a>(&'a mut dyn FnMut(&str));
+impl StreamSink for DeltaOnly<'_> {
+    fn delta(&mut self, text: &str) {
+        (self.0)(text);
+    }
 }
 
 fn read_limited(mut r: impl BufRead, max: u64) -> String {
@@ -573,17 +687,37 @@ pub fn run_chat(
     cancel: &AtomicBool,
     on_delta: &mut dyn FnMut(&str),
 ) -> ChatRun {
+    run_chat_ex(transport, p, endpoint, model, key, spec, cancel, &mut DeltaOnly(on_delta))
+}
+
+/// Like [`run_chat`], but also reports hidden thinking and records wall-clock timing.
+#[allow(clippy::too_many_arguments)]
+pub fn run_chat_ex(
+    transport: &dyn Transport,
+    p: AiProvider,
+    endpoint: &str,
+    model: &str,
+    key: Option<&str>,
+    spec: &HttpSpec,
+    cancel: &AtomicBool,
+    sink: &mut dyn StreamSink,
+) -> ChatRun {
+    let t0 = Instant::now();
+    let since = || t0.elapsed().as_millis() as u64;
     let mut run = ChatRun::default();
     let resp = match transport.send(spec) {
         Ok(r) => r,
         Err(e) => {
             run.error = Some(describe_transport_error(p, endpoint, &e, key));
+            run.timing.total_ms = since();
             return run;
         }
     };
+    run.timing.headers_ms = Some(since());
     if !(200..300).contains(&resp.status) {
         let body = read_limited(resp.body, 8192);
         run.error = Some(classify_http_error(p, resp.status, &body, model, key));
+        run.timing.total_ms = since();
         return run;
     }
     let mut reader = resp.body;
@@ -606,9 +740,19 @@ pub fn run_chat(
         for ev in parser.feed_line(&String::from_utf8_lossy(&line)) {
             match ev {
                 StreamEvent::Delta(d) => {
+                    run.timing.first_token_ms.get_or_insert_with(since);
+                    run.timing.text_chunks += 1;
+                    run.timing.text_chars += d.chars().count();
                     run.text.push_str(&d);
-                    on_delta(&d);
+                    sink.delta(&d);
                 }
+                StreamEvent::Thinking(n) => {
+                    run.timing.first_thinking_ms.get_or_insert_with(since);
+                    run.timing.thinking_chunks += 1;
+                    run.timing.thinking_chars += n;
+                    sink.thinking(n);
+                }
+                StreamEvent::Usage(u) => run.usage = Some(u),
                 StreamEvent::Done => break 'outer,
                 StreamEvent::Error(m) => {
                     run.error = Some(AiError::new(ErrorKind::Provider, shorten(&scrub(&m, key), 300)));
@@ -618,11 +762,16 @@ pub fn run_chat(
         }
     }
     if run.text.is_empty() && run.error.is_none() && !run.cancelled {
-        run.error = Some(AiError::new(
-            ErrorKind::Empty,
-            "The model sent back an empty reply. If it's an Ollama model, it may still be loading; try again.",
-        ));
+        run.error = Some(if run.timing.thinking_chunks > 0 {
+            AiError::new(
+                ErrorKind::Empty,
+                "The model only produced hidden reasoning and no answer (it may have run out of room). Try again, or turn thinking off in Settings → Assistant.",
+            )
+        } else {
+            AiError::new(ErrorKind::Empty, "The model sent back an empty reply. If it's an Ollama model, it may still be loading; try again.")
+        });
     }
+    run.timing.total_ms = since();
     run
 }
 
@@ -1019,5 +1168,91 @@ mod tests {
         assert_eq!(compose_user_content("hi", Some("  ")), "hi");
         let c = compose_user_content("what song?", Some("Now playing: X"));
         assert!(c.contains("Now playing: X") && c.ends_with("what song?"));
+    }
+
+    // ---- performance work
+
+    fn ollama_body(t: &Tuning) -> Value {
+        let spec = chat_request_with(AiProvider::Ollama, "http://localhost:11434", "qwen", "sys", &[ChatTurn::user("hi")], None, t).unwrap();
+        serde_json::from_str(spec.body.as_deref().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn ollama_request_carries_tuning_and_defaults_to_no_thinking() {
+        let b = ollama_body(&Tuning::default());
+        assert_eq!(b["think"], json!(false));
+        assert_eq!(b["keep_alive"], json!("30m"));
+        assert_eq!(b["options"]["num_ctx"], json!(4096));
+        assert!(b["options"].get("num_predict").is_none(), "no output cap unless asked");
+        assert!(b["options"].get("num_gpu").is_none(), "GPU layers are left to Ollama");
+        // the plain helper (used everywhere before) now has the same safe defaults
+        let plain = chat_request(AiProvider::Ollama, "http://localhost:11434", "qwen", "sys", &[ChatTurn::user("hi")], None).unwrap();
+        assert!(plain.body.unwrap().contains("\"think\":false"));
+    }
+
+    #[test]
+    fn tuning_values_are_passed_through_and_keep_alive_forms_are_valid_for_ollama() {
+        let t = Tuning { think: true, keep_alive: "-1".into(), num_ctx: 8192, num_predict: Some(128) };
+        let b = ollama_body(&t);
+        assert_eq!(b["think"], json!(true));
+        assert_eq!(b["keep_alive"], json!(-1), "forever must be the number -1, not a string");
+        assert_eq!((b["options"]["num_ctx"].clone(), b["options"]["num_predict"].clone()), (json!(8192), json!(128)));
+        assert_eq!(ollama_body(&Tuning { keep_alive: "0".into(), ..Tuning::default() })["keep_alive"], json!(0));
+        assert_eq!(ollama_body(&Tuning { keep_alive: "2h".into(), ..Tuning::default() })["keep_alive"], json!("2h"));
+    }
+
+    #[test]
+    fn other_providers_are_not_sent_ollama_options() {
+        let spec = chat_request(AiProvider::OpenAi, "https://api.openai.com/v1", "gpt", "sys", &[ChatTurn::user("hi")], Some("sk-x")).unwrap();
+        let b = spec.body.unwrap();
+        assert!(!b.contains("think") && !b.contains("keep_alive") && !b.contains("num_ctx"));
+    }
+
+    #[test]
+    fn thinking_chunks_are_reported_not_shown_and_usage_is_captured() {
+        let evs = feed(
+            AiProvider::Ollama,
+            &[
+                r#"{"message":{"role":"assistant","content":"","thinking":"Let me consider"},"done":false}"#,
+                r#"{"message":{"role":"assistant","content":"Hello"},"done":false}"#,
+                r#"{"message":{"content":""},"done":true,"done_reason":"stop","eval_count":12,"eval_duration":1000000000,"load_duration":2000000000,"total_duration":4000000000}"#,
+            ],
+        );
+        assert_eq!(evs[0], StreamEvent::Thinking(15));
+        assert_eq!(evs[1], StreamEvent::Delta("Hello".into()));
+        match &evs[2] {
+            StreamEvent::Usage(u) => assert_eq!((u.generated_tokens, u.tokens_per_sec, u.load_ms), (Some(12), Some(12.0), Some(2000.0))),
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(evs[3], StreamEvent::Done);
+    }
+
+    #[test]
+    fn runner_records_timing_phases_and_thinking_only_replies_get_a_useful_message() {
+        let body = "{\"message\":{\"thinking\":\"abc\"},\"done\":false}\n{\"message\":{\"thinking\":\"de\"},\"done\":false}\n{\"message\":{\"content\":\"Hi\"},\"done\":false}\n{\"done\":true,\"eval_count\":3,\"eval_duration\":1000000000}\n";
+        let f = Fake { status: 200, refuse: false, body: body.into() };
+        let (r, got) = run(AiProvider::Ollama, &f, &AtomicBool::new(false));
+        assert_eq!(got, vec!["Hi"]);
+        let t = &r.timing;
+        assert_eq!((t.thinking_chunks, t.thinking_chars, t.text_chunks, t.text_chars), (2, 5, 1, 2));
+        assert!(t.headers_ms.unwrap() <= t.first_thinking_ms.unwrap());
+        assert!(t.first_thinking_ms.unwrap() <= t.first_token_ms.unwrap());
+        assert!(t.first_token_ms.unwrap() <= t.total_ms);
+        assert_eq!(r.usage.unwrap().tokens_per_sec, Some(3.0));
+
+        let only = Fake { status: 200, refuse: false, body: "{\"message\":{\"thinking\":\"hmm\"},\"done\":false}\n{\"done\":true}\n".into() };
+        let (r, _) = run(AiProvider::Ollama, &only, &AtomicBool::new(false));
+        let e = r.error.unwrap();
+        assert_eq!(e.kind, ErrorKind::Empty);
+        assert!(e.message.contains("hidden reasoning"), "{}", e.message);
+    }
+
+    #[test]
+    fn ollama_history_budget_follows_the_context_window() {
+        let (turns, chars) = history_budget(AiProvider::Ollama, 4096);
+        assert!(turns <= 12 && chars <= 4096 * 4 / 2, "history must leave most of the window free: {chars}");
+        assert!(history_budget(AiProvider::Ollama, 8192).1 > chars);
+        assert_eq!(history_budget(AiProvider::OpenAi, 4096), (20, 24_000));
+        assert!(context_cap(AiProvider::Ollama, 4096) < context_cap(AiProvider::OpenAi, 4096));
     }
 }

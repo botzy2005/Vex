@@ -569,6 +569,55 @@ def main():
             sp.keyboard.press("Escape")
         check("settings: shortcut recorder captures Ctrl+Alt+K and ignores bare keys", hotkey_record)
 
+        goto_assistant()
+        page.locator('[data-testid="btn-new-chat"]').click(); page.wait_for_timeout(300)
+
+        def thinking_is_visible_not_silent():
+            # a reasoning model: nothing for a while, then hidden thinking, then the answer
+            page.evaluate("window.__harness.setAiScript({chunks:['Done thinking.'], delayMs:50, silentMs:5200, thinkingMs:1800})")
+            say("Think about it"); page.wait_for_timeout(600)
+            expect(page.locator('[data-testid="typing"]')).to_have_attribute("data-phase", "waiting")
+            page.wait_for_timeout(4000)  # ~4.6 s: still silent, but the reader is told it is waiting and for how long
+            note = page.locator('[data-testid="wait-note"]').inner_text()
+            assert "Waiting for the model" in note and "s" in note, note
+            page.wait_for_timeout(1300)  # ~5.9 s: thinking events have started
+            expect(page.locator('[data-testid="typing"]')).to_have_attribute("data-phase", "thinking")
+            assert "Thinking" in page.locator('[data-testid="wait-note"]').inner_text()
+            page.wait_for_timeout(2800)
+            assert "Done thinking." in texts("msg-assistant")[-1]
+            assert page.locator('[data-testid="typing"]').count() == 0
+        check("a slow or reasoning model shows elapsed time and 'Thinking', never a silent screen", thinking_is_visible_not_silent)
+
+        def no_duplicate_requests():
+            page.evaluate("window.__harness.setAiScript({chunks:['a','b','c'], delayMs:400})")
+            before = len(page.evaluate("window.__harness.aiSends"))
+            inp = page.locator('[data-testid="assistant-input"]'); inp.click(); inp.fill("double submit")
+            page.keyboard.press("Enter"); page.keyboard.press("Enter"); page.keyboard.press("Enter")
+            page.wait_for_timeout(300)
+            assert len(page.evaluate("window.__harness.aiSends")) - before == 1, "one message must produce exactly one request"
+            page.wait_for_timeout(1600)
+        check("pressing Enter repeatedly sends exactly one request", no_duplicate_requests)
+
+        def stop_is_immediate():
+            page.evaluate("window.__harness.setAiScript({chunks:Array(40).fill('x '), delayMs:200})")
+            say("long answer"); page.wait_for_timeout(700)
+            t0 = page.evaluate("performance.now()")
+            page.locator('[data-testid="assistant-stop"]').click()
+            expect(page.locator('[data-testid="assistant-send"]')).to_be_visible(timeout=1500)
+            assert page.evaluate("performance.now()") - t0 < 1000
+            assert page.locator('[data-testid="partial-note"]').count() >= 1
+        check("Stop ends the answer within a second even mid-stream", stop_is_immediate)
+
+        def fast_stream_is_batched():
+            # 400 tiny chunks at 2 ms: React should render far fewer times than there are chunks
+            page.evaluate("window.__harness.setAiScript({chunks:Array(400).fill('w '), delayMs:2})")
+            page.evaluate("""() => { window.__mut = 0; const el = document.querySelector('[data-testid="chat-scroll"]'); window.__obs = new MutationObserver(m => { window.__mut += m.length; }); window.__obs.observe(el, {childList:true, subtree:true, characterData:true}); }""")
+            say("fast"); page.wait_for_timeout(2500)
+            muts = page.evaluate("window.__mut"); page.evaluate("window.__obs.disconnect()")
+            assert 0 < muts < 400, f"{muts} DOM mutations for 400 chunks"
+            assert texts("msg-assistant")[-1].count("w") >= 400
+        check("a very fast stream is shown in batches, not one re-render per chunk", fast_stream_is_batched)
+
         # ---- assistant settings (provider, key, endpoint, connection test, models) ----
         def sget(tid): return sp.locator(f'[data-testid="{tid}"]')
         sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(400)
@@ -639,9 +688,66 @@ def main():
         check("settings: music-sharing toggle persists; Clear chat history asks first and works", privacy_controls)
 
         def face_preview_drives_island():
+            page.locator('[data-testid="assistant-input"]').blur()
+            page.mouse.move(5, 380); page.wait_for_timeout(1800)
+            if page.locator('[data-testid="btn-new-chat"]').count():  # still expanded: an empty chat shows the face
+                page.locator('[data-testid="btn-new-chat"]').click(); page.wait_for_timeout(300)
             sp.locator('[data-testid="page-assistant"]').click(); sp.locator('[data-testid="face-state-thinking"]').click(); page.wait_for_timeout(500)
             expect(page.locator('[data-testid="assistant-face"]').first).to_have_attribute("data-state", "thinking")
         check("settings: face preview plays on the real island", face_preview_drives_island)
+
+        # ---- developer page + Ollama tuning ----
+        def ollama_tuning_defaults():
+            sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
+            assert sget("ollama-think").get_attribute("aria-checked") == "false", "thinking must default to off"
+            expect(sget("ollama-keepalive")).to_have_value("30m")
+            expect(sget("ollama-ctx")).to_have_value("4096")
+        check("settings: Ollama defaults to thinking off, keep-loaded 30 min, 4096-token context", ollama_tuning_defaults)
+
+        def ollama_tuning_saves():
+            sget("ollama-think").click(); sget("ollama-keepalive").select_option("2h"); sget("ollama-ctx").select_option("8192"); sp.wait_for_timeout(300)
+            s = json.loads(sp.evaluate("localStorage.getItem('islet-test-settings')"))["ai"]
+            assert s["ollamaThink"] is True and s["ollamaKeepAlive"] == "2h" and s["ollamaNumCtx"] == 8192, s
+            sget("ollama-think").click(); sget("ollama-keepalive").select_option("30m"); sget("ollama-ctx").select_option("4096"); sp.wait_for_timeout(200)
+        check("settings: the Ollama tuning choices are saved", ollama_tuning_saves)
+
+        def dev_empty_then_rows():
+            sp.locator('[data-testid="page-developer"]').click(); sp.wait_for_timeout(400)
+            expect(sget("metrics-empty")).to_be_visible()
+            m = {"seq": 7, "startedAtMs": 0, "provider": "ollama", "model": "qwen3.5:4b", "outcome": "done", "errorKind": None, "payloadBytes": 612, "messagesSent": 3,
+                 "contextChars": 540, "historyTrimmed": False, "think": False, "numCtx": 4096, "keepAlive": "30m", "prepareMs": 3,
+                 "timing": {"headersMs": 900, "firstThinkingMs": None, "firstTokenMs": 1400, "totalMs": 4200, "thinkingChunks": 0, "textChunks": 30, "thinkingChars": 0, "textChars": 120},
+                 "usage": {"totalMs": 4100, "loadMs": 0, "promptTokens": 140, "promptEvalMs": 300, "generatedTokens": 30, "generationMs": 2800, "tokensPerSec": 10.7, "doneReason": "stop"}}
+            sp.evaluate("m => window.__harness.setMetrics({requests:[m], requestsSent: 1})", m)
+            sp.wait_for_timeout(2400)
+            row = sget("metric-row")
+            expect(row).to_have_count(1)
+            expect(sget("m-first")).to_have_text("1.40 s"); expect(sget("m-tps")).to_have_text("10.7")
+            expect(sget("requests-sent")).to_contain_text("1 sent")
+            body = sp.inner_text('[data-testid="dev-page"]')
+            assert "Hello" not in body and "Think about it" not in body, "no conversation text may appear"
+        check("developer page shows per-request timings (first word, tokens/s, size) and no message text", dev_empty_then_rows)
+
+        def bench_flow():
+            sp.evaluate("window.__harness.setOllama({running:true, models:['qwen3.5:2b','qwen3.5:4b']})")
+            rows = []
+            for model, ft, tot in (("qwen3.5:2b", 900, 2100), ("qwen3.5:4b", 1800, 5200)):
+                rows.append({"model": model, "think": False, "mode": "preload", "ok": True, "error": None, "wallMs": 3000, "headersMs": 3000, "firstThinkingMs": None, "firstTokenMs": None, "visibleChars": 0, "thinkingChars": 0, "payloadBytes": 80, "usage": {"loadMs": 2900}})
+                for mode in ("direct", "vex"):
+                    rows.append({"model": model, "think": False, "mode": mode, "ok": True, "error": None, "wallMs": tot, "headersMs": 300, "firstThinkingMs": None, "firstTokenMs": ft, "visibleChars": 40, "thinkingChars": 0, "payloadBytes": 300, "usage": {"loadMs": 0, "generatedTokens": 12, "tokensPerSec": 9.5}})
+            sp.evaluate("r => window.__harness.setBenchRows(r)", rows)
+            sp.locator('[data-testid="page-assistant"]').click(); sp.locator('[data-testid="page-developer"]').click(); sp.wait_for_timeout(500)
+            expect(sget("bench-run")).to_be_disabled()
+            sget("bench-model").nth(0).check(); sget("bench-model").nth(1).check()
+            sget("bench-run").click(); sp.wait_for_timeout(1200)
+            calls = sp.evaluate("window.__harness.benchCalls")
+            assert calls and sorted(calls[-1]["models"]) == ["qwen3.5:2b", "qwen3.5:4b"] and calls[-1]["includeThinking"] is False, calls
+            expect(sget("bench-row")).to_have_count(6)
+            modes = sget("bench-row").evaluate_all("els => els.map(e => e.dataset.mode)")
+            assert modes.count("direct") == 2 and modes.count("vex") == 2 and modes.count("preload") == 2, modes
+            assert "Through VEX" in sp.inner_text('[data-testid="bench-table"]') and "Direct to Ollama" in sp.inner_text('[data-testid="bench-table"]')
+        check("developer page: the speed test runs chosen models direct-to-Ollama and through VEX and lists both", bench_flow)
+        sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
 
         def reset_section():
             sp.locator('[data-testid="face-state-idle"]').click()

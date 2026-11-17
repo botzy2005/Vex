@@ -15,8 +15,13 @@ export interface ChatHook {
   messages: ChatMessage[];
   /** Text of the reply that is arriving right now (null when nothing is streaming). */
   streaming: string | null;
-  /** 'waiting' = request sent, no text yet; 'streaming' = text arriving. */
-  phase: 'idle' | 'waiting' | 'streaming';
+  /**
+   * 'waiting' = request sent, nothing back yet (e.g. the model is loading);
+   * 'thinking' = the model is reasoning (hidden), no answer text yet; 'streaming' = answer text arriving.
+   */
+  phase: 'idle' | 'waiting' | 'thinking' | 'streaming';
+  /** When the current request was sent (ms since epoch), for an elapsed-time readout. */
+  startedAt: number | null;
   error: ChatError | null;
   history: ConversationSummary[];
   send(text: string, context: ContextPayload | null): Promise<boolean>;
@@ -41,6 +46,24 @@ export function useChat(backend: Backend, assistant: AssistantHook): ChatHook {
   const [phase, setPhase] = useState<ChatHook['phase']>('idle');
   const [error, setError] = useState<ChatError | null>(null);
   const [history, setHistory] = useState<ConversationSummary[]>([]);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+
+  // Streamed text is collected here and shown at most once per frame: a fast model can send
+  // dozens of chunks a second, and re-parsing Markdown for each one would make the UI the bottleneck.
+  const pending = useRef('');
+  const raf = useRef<number | null>(null);
+  const flush = useCallback(() => {
+    raf.current = null;
+    if (!pending.current) return;
+    const add = pending.current;
+    pending.current = '';
+    setStreaming((s) => (s ?? '') + add);
+  }, []);
+  const dropPending = () => {
+    pending.current = '';
+    if (raf.current !== null) cancelAnimationFrame(raf.current);
+    raf.current = null;
+  };
 
   const requestId = useRef<number | null>(null);
   const convRef = useRef<string | null>(null);
@@ -92,15 +115,22 @@ export function useChat(backend: Backend, assistant: AssistantHook): ChatHook {
     backend
       .onAiEvent((e: AiEvent) => {
         if (e.requestId !== requestId.current) return;
+        if (e.kind === 'thinking') {
+          setPhase((p) => (p === 'streaming' ? p : 'thinking'));
+          return;
+        }
         if (e.kind === 'delta') {
           setPhase('streaming');
-          setStreaming((s) => (s ?? '') + (e.text ?? ''));
+          pending.current += e.text ?? '';
+          if (raf.current === null) raf.current = requestAnimationFrame(flush);
           return;
         }
         // finished in some way: the stored conversation is the source of truth
+        dropPending();
         requestId.current = null;
         setStreaming(null);
         setPhase('idle');
+        setStartedAt(null);
         void load(e.conversationId).then(refreshHistory);
         if (e.kind === 'error') {
           setError({ message: e.message ?? 'The request failed.', kind: e.errorKind ?? null });
@@ -114,7 +144,7 @@ export function useChat(backend: Backend, assistant: AssistantHook): ChatHook {
       dead = true;
       off?.();
     };
-  }, [backend, load, refreshHistory]);
+  }, [backend, load, refreshHistory, flush]);
 
   const send = useCallback(
     async (text: string, context: ContextPayload | null) => {
@@ -123,7 +153,9 @@ export function useChat(backend: Backend, assistant: AssistantHook): ChatHook {
         const r = await backend.aiSend({ conversationId: convRef.current, text, context });
         requestId.current = r.requestId;
         setConversationId(r.conversationId);
+        dropPending();
         setPhase('waiting');
+        setStartedAt(Date.now());
         setStreaming(null);
         setFace.current('thinking');
         await load(r.conversationId); // shows the stored user message immediately
@@ -180,5 +212,5 @@ export function useChat(backend: Backend, assistant: AssistantHook): ChatHook {
     await refreshHistory();
   }, [backend, refreshHistory]);
 
-  return { conversationId, title, messages, streaming, phase, error, history, send, stop, newChat, open, remove, clearAll, dismissError: () => setError(null) };
+  return { conversationId, title, messages, streaming, phase, startedAt, error, history, send, stop, newChat, open, remove, clearAll, dismissError: () => setError(null) };
 }

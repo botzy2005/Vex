@@ -287,3 +287,4 @@ html[data-backend='test'] body::after {
 .chip-toggle:hover { background: var(--chip-strong); }
 .chip-toggle[data-on='true'] { background: var(--accent); color: #fff; }
 .attach-note { font-size: 10.5px; color: var(--fg-faint); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wait-note { font-size: 11px; color: var(--fg-faint); padding: 0 2px 4px; font-variant-numeric: tabular-nums; }

@@ -2,16 +2,31 @@ import { useEffect, useState } from 'react';
 import { AssistantFace } from '../assistant/AssistantFace';
 import { useBackend, useResolvedTheme, useSettings } from '../backend/hooks';
 import type { AiTestResult, AssistantState, MonitorInfo, Settings, SettingsPatch } from '../shared/types';
+import { DeveloperPage } from './DeveloperPage';
 import { CommitText, HotkeyInput, Row, Segmented, Select, Slider, Toggle } from './controls';
 
-type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'about';
+type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'developer' | 'about';
 const PAGES: Array<{ id: Page; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'island', label: 'Island' },
   { id: 'music', label: 'Music & lyrics' },
   { id: 'assistant', label: 'Assistant' },
+  { id: 'developer', label: 'Developer' },
   { id: 'about', label: 'About' },
 ];
+
+const KEEP_ALIVE_OPTIONS = [
+  { value: '5m', label: '5 minutes' },
+  { value: '30m', label: '30 minutes' },
+  { value: '2h', label: '2 hours' },
+  { value: '-1', label: 'Until Ollama quits' },
+  { value: '0', label: 'Unload right away' },
+];
+const CTX_OPTIONS = [2048, 4096, 8192, 16384].map((n) => ({ value: n, label: `${n.toLocaleString()} tokens` }));
+/** Keeps a value set elsewhere (a hand-edited file) visible in a dropdown instead of silently hiding it. */
+function keepCurrent<T extends string | number>(opts: Array<{ value: T; label: string }>, current: T) {
+  return opts.some((o) => o.value === current) ? opts : [...opts, { value: current, label: String(current) }];
+}
 
 type Update = (p: SettingsPatch) => Promise<void>;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -43,6 +58,7 @@ export function SettingsApp() {
         {page === 'island' && <IslandPage s={settings} update={update} />}
         {page === 'music' && <MusicPage s={settings} update={update} />}
         {page === 'assistant' && <AssistantPage s={settings} update={update} />}
+        {page === 'developer' && <DeveloperPage s={settings} />}
         {page === 'about' && <AboutPage />}
       </main>
     </div>
@@ -241,6 +257,19 @@ function AssistantPage({ s, update }: { s: Settings; update: Update }) {
         <Row label="Ollama address" hint="Where Ollama is listening. The default is this PC.">
           <CommitText label="Ollama address" testId="ollama-endpoint" width={260} value={ai.ollamaEndpoint} onCommit={(v) => update({ ai: { ollamaEndpoint: v } })} />
         </Row>
+      )}
+      {p === 'ollama' && (
+        <>
+          <Row label="Let the model think first" hint="Reasoning models (such as Qwen) can spend a long time on hidden thinking before the first word. Off is much faster; turn on for harder questions.">
+            <Toggle label="Let the model think first" testId="ollama-think" checked={ai.ollamaThink} onChange={(v) => update({ ai: { ollamaThink: v } })} />
+          </Row>
+          <Row label="Keep model loaded" hint="How long Ollama keeps the model in memory after a reply. Longer avoids waiting for it to load again.">
+            <Select<string> label="Keep model loaded" testId="ollama-keepalive" value={ai.ollamaKeepAlive} onChange={(v) => update({ ai: { ollamaKeepAlive: v } })} options={keepCurrent(KEEP_ALIVE_OPTIONS, ai.ollamaKeepAlive)} />
+          </Row>
+          <Row label="Context window" hint="How much conversation the model reads each time. Smaller is faster and uses less memory (important on a 4 GB graphics card).">
+            <Select<number> label="Context window" testId="ollama-ctx" value={ai.ollamaNumCtx} onChange={(v) => update({ ai: { ollamaNumCtx: v } })} options={keepCurrent(CTX_OPTIONS, ai.ollamaNumCtx)} />
+          </Row>
+        </>
       )}
       {p === 'openai-compatible' && (
         <Row label="Server address" hint="The base URL including /v1, e.g. http://localhost:1234/v1 for LM Studio.">

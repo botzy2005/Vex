@@ -50,6 +50,9 @@ export interface Settings {
     ollamaEndpoint: string;
     compatibleBaseUrl: string;
     contextOnRequest: boolean;
+    ollamaThink: boolean;
+    ollamaKeepAlive: string;
+    ollamaNumCtx: number;
   };
 }
 
@@ -188,7 +191,7 @@ export interface SendResult {
   requestId: number;
 }
 
-export type AiEventKind = 'delta' | 'done' | 'error' | 'cancelled';
+export type AiEventKind = 'delta' | 'thinking' | 'done' | 'error' | 'cancelled';
 
 export interface AiEvent {
   requestId: number;
@@ -197,6 +200,8 @@ export interface AiEvent {
   text?: string | null;
   message?: string | null;
   errorKind?: string | null;
+  /** For 'thinking' events: how much hidden reasoning has arrived so far, in characters. */
+  thinkingChars?: number | null;
 }
 
 export interface AiTestResult {
@@ -205,4 +210,71 @@ export interface AiTestResult {
   models: string[];
   /** Ollama only: the endpoint is on this PC. */
   local: boolean;
+}
+
+// ---- AI performance measurements (numbers only; never message text or keys)
+
+/** What Ollama itself reports for a reply. */
+export interface UsageStats {
+  totalMs: number | null;
+  /** Loading the model into memory (0 = it was already loaded). */
+  loadMs: number | null;
+  promptTokens: number | null;
+  promptEvalMs: number | null;
+  /** Includes hidden thinking tokens. */
+  generatedTokens: number | null;
+  generationMs: number | null;
+  tokensPerSec: number | null;
+  doneReason: string | null;
+}
+
+export interface RequestTiming {
+  headersMs: number | null;
+  firstThinkingMs: number | null;
+  firstTokenMs: number | null;
+  totalMs: number;
+  thinkingChunks: number;
+  textChunks: number;
+  thinkingChars: number;
+  textChars: number;
+}
+
+export interface RequestMetrics {
+  seq: number;
+  startedAtMs: number;
+  provider: string;
+  model: string;
+  outcome: 'done' | 'cancelled' | 'error';
+  errorKind: string | null;
+  payloadBytes: number;
+  messagesSent: number;
+  contextChars: number;
+  historyTrimmed: boolean;
+  think: boolean | null;
+  numCtx: number | null;
+  keepAlive: string | null;
+  prepareMs: number;
+  timing: RequestTiming;
+  usage: UsageStats | null;
+}
+
+export interface MetricsView {
+  requests: RequestMetrics[];
+  requestsSent: number;
+}
+
+export interface BenchRow {
+  model: string;
+  think: boolean;
+  mode: 'preload' | 'direct' | 'vex';
+  ok: boolean;
+  error: string | null;
+  wallMs: number;
+  headersMs: number | null;
+  firstThinkingMs: number | null;
+  firstTokenMs: number | null;
+  visibleChars: number;
+  thinkingChars: number;
+  payloadBytes: number;
+  usage: UsageStats | null;
 }

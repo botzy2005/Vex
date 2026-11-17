@@ -8,6 +8,7 @@ pub mod ai;
 pub mod chat;
 pub mod lyrics;
 pub mod media;
+pub mod perf;
 pub mod placement;
 pub mod secrets;
 pub mod settings;

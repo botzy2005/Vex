@@ -143,6 +143,27 @@ pub struct Ai {
     /// Let the assistant see the current song / lyrics, but only for a message that asks about them.
     /// When off, nothing about your music is ever sent unless you attach it by hand.
     pub context_on_request: bool,
+    /// Let reasoning ("thinking") Ollama models think before answering. Off by default: a thinking
+    /// model can spend minutes on hidden reasoning tokens on a laptop GPU before the first visible word.
+    pub ollama_think: bool,
+    /// How long Ollama keeps the model in memory after a reply ("30m", "2h", "-1" = forever).
+    /// Keeping it loaded avoids re-loading the model before every conversation.
+    pub ollama_keep_alive: String,
+    /// Context window (tokens) requested from Ollama. Smaller = less memory and faster prompt handling.
+    pub ollama_num_ctx: u32,
+}
+
+pub const DEFAULT_OLLAMA_KEEP_ALIVE: &str = "30m";
+pub const DEFAULT_OLLAMA_NUM_CTX: u32 = 4096;
+
+/// Accepts what Ollama accepts for `keep_alive`: a number with s/m/h, "0", or "-1".
+pub fn valid_keep_alive(s: &str) -> bool {
+    if s == "-1" || s == "0" {
+        return true;
+    }
+    let Some(unit) = s.chars().last() else { return false };
+    let digits = &s[..s.len() - unit.len_utf8()];
+    matches!(unit, 's' | 'm' | 'h') && !digits.is_empty() && digits.len() <= 4 && digits.chars().all(|c| c.is_ascii_digit())
 }
 
 pub const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
@@ -257,6 +278,9 @@ impl Default for Ai {
             ollama_endpoint: DEFAULT_OLLAMA_ENDPOINT.into(),
             compatible_base_url: String::new(),
             context_on_request: true,
+            ollama_think: false,
+            ollama_keep_alive: DEFAULT_OLLAMA_KEEP_ALIVE.into(),
+            ollama_num_ctx: DEFAULT_OLLAMA_NUM_CTX,
             system_prompt: "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short.".into(),
         }
     }
@@ -343,6 +367,11 @@ impl Settings {
         ai.ollama_endpoint = normalize_endpoint(&ai.ollama_endpoint).unwrap_or_else(|| DEFAULT_OLLAMA_ENDPOINT.into());
         ai.compatible_base_url = normalize_endpoint(&ai.compatible_base_url).unwrap_or_default();
         ai.system_prompt = ai.system_prompt.chars().take(4000).collect();
+        ai.ollama_keep_alive = ai.ollama_keep_alive.trim().to_string();
+        if !valid_keep_alive(&ai.ollama_keep_alive) {
+            ai.ollama_keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE.into();
+        }
+        ai.ollama_num_ctx = ai.ollama_num_ctx.clamp(1024, 32768);
     }
 
     /// Apply an RFC 7386 merge patch (objects merge, `null` resets a field to
@@ -527,6 +556,23 @@ mod tests {
         for p in AiProvider::ALL {
             assert_eq!(AiProvider::from_id(p.id()), Some(p));
             assert_eq!(serde_json::to_value(p).unwrap(), json!(p.id()));
+        }
+    }
+
+    #[test]
+    fn ollama_tuning_defaults_and_sanitising() {
+        let d = Settings::default();
+        assert!(!d.ai.ollama_think);
+        assert_eq!((d.ai.ollama_keep_alive.as_str(), d.ai.ollama_num_ctx), ("30m", 4096));
+        let s = d.with_patch(&serde_json::json!({"ai": {"ollamaKeepAlive": "banana", "ollamaNumCtx": 99999999}})).unwrap();
+        assert_eq!((s.ai.ollama_keep_alive.as_str(), s.ai.ollama_num_ctx), ("30m", 32768));
+        let s = d.with_patch(&serde_json::json!({"ai": {"ollamaKeepAlive": "-1", "ollamaNumCtx": 10}})).unwrap();
+        assert_eq!((s.ai.ollama_keep_alive.as_str(), s.ai.ollama_num_ctx), ("-1", 1024));
+        for ok in ["5m", "30m", "2h", "90s", "0", "-1"] {
+            assert!(valid_keep_alive(ok), "{ok}");
+        }
+        for bad in ["", "m", "5", "5d", "1.5h", "-5m", "5 m", "99999m"] {
+            assert!(!valid_keep_alive(bad), "{bad}");
         }
     }
 }
