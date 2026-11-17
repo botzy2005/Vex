@@ -349,3 +349,42 @@ describe('app context', () => {
     expect(buildContext({ song: false, lyrics: true }, { session, lyrics: null, activeIndex: -1, positionMs: 0 })!.text).toContain('no lyrics loaded');
   });
 });
+
+describe('music context detection (what the person asks decides what is shared)', () => {
+  const asks = [
+    'What song am I currently listening to?', 'What song is this?', "what's playing", "What's playing right now?", 'what am I listening to',
+    'Which song is playing right now', 'which track is this', 'what music is playing', 'now playing?', 'who sings this', 'who is singing',
+    'who is the artist', "who's this by?", 'who wrote this song', 'tell me about this song', 'how long is this song', 'is the music paused',
+    'Tell me about the current track',
+  ];
+  const asksLyrics = [
+    'explain these lyrics', 'Explain the lyrics', 'what is he singing', 'what are they saying',
+    'what does this song mean', 'what is this song about', 'meaning of this song', 'explain this song', 'what does the current song mean',
+  ];
+  const unrelated = [
+    'Explain cloud security in simple terms.', 'Write a song about cats', 'compose a song for my mom', 'write lyrics for a rap about pizza',
+    'recommend some songs for studying', 'play some music', 'My favourite song ever is Hey Jude', 'how do I make music with a laptop',
+    "what's playing at the cinema tonight", 'what music should I learn on guitar', 'who wrote Hamlet', 'what song is based on a true story',
+    'what is a lyric poem', 'Compare cloud security and network security in a table', 'what is the meaning of life',
+  ];
+  it.each(asks)('attaches the song for: %s', (t) => {
+    expect(detectContextRequest(t).song).toBe(true);
+  });
+  it.each(asksLyrics)('attaches song and lyrics for: %s', (t) => {
+    expect(detectContextRequest(t)).toEqual({ song: true, lyrics: true });
+  });
+  it.each(unrelated)('attaches nothing for: %s', (t) => {
+    expect(detectContextRequest(t)).toEqual({ song: false, lyrics: false });
+  });
+  it('uses unsynced lyrics when no synced lyrics exist, and says so when there are none', () => {
+    const session = { title: 'T', artist: 'A', status: 'playing', durationMs: 1000 } as never;
+    const withPlain = buildContext({ song: true, lyrics: true }, { session, lyrics: null, plainLyrics: 'la la la', activeIndex: -1, positionMs: 0 });
+    expect(withPlain?.text).toContain('la la la');
+    expect(withPlain?.text).toContain('"T" by A');
+    const none = buildContext({ song: true, lyrics: true }, { session, lyrics: null, plainLyrics: null, activeIndex: -1, positionMs: 0 });
+    expect(none?.text).toContain('no lyrics loaded');
+  });
+  it('builds nothing when nothing was asked for', () => {
+    expect(buildContext({ song: false, lyrics: false }, { session: null, lyrics: null, activeIndex: -1, positionMs: 0 })).toBeNull();
+  });
+});

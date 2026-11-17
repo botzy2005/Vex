@@ -67,3 +67,17 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [ ] M6 Voice in/out
 - [ ] M7 System actions + permission layer + emergency stop
 - [ ] M8 Utilities · M9 Plugins · M10 Taskbar modes · M11 Installer polish, signing, performance pass
+
+## Context detection and default prompt fix
+
+Root causes (found by probing, before changing anything):
+- "What song am I currently listening to?" matched none of the old detector's patterns, so no music context was attached and the model answered truthfully that it could not see it. The Windows media integration itself was fine; the old UI test only used "What song is playing?".
+- The default system prompt said "Keep replies short." and said nothing about substance or about the shared-context block.
+
+Fixed and covered by automated tests (vitest, cargo, Playwright with the test backend):
+- Broader song and lyrics detection, with unrelated questions staying private. Setting off means only the Share chips attach context. Honest "nothing playing" / "no lyrics" text.
+- New default prompt, a one-time upgrade of the untouched old default (custom prompts are kept), and a "Reset to default" button.
+
+Needs the user's PC (not verifiable in the sandbox):
+- [ ] Answer quality of qwen3.5:2b / 4b with the new prompt
+- [ ] Real Windows media session: ask "What song am I currently listening to?" with music playing

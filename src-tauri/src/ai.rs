@@ -826,13 +826,20 @@ mod tests {
         let h = harness();
         let cfg = cfg(AiProvider::Ollama, port, "m");
         chat(&h, &cfg, None, "tell me a joke", None).unwrap();
+        // The system prompt explains the context marker, so look only at what the *user* messages carry.
+        let user_text = |body: &str| -> String {
+            let v: serde_json::Value = serde_json::from_str(body).unwrap();
+            v["messages"].as_array().unwrap().iter().filter(|m| m["role"] == "user").map(|m| m["content"].as_str().unwrap_or("").to_string()).collect::<Vec<_>>().join("\n")
+        };
         let plain = log.lock().unwrap().last().unwrap().body.clone();
-        assert!(!plain.contains("Context from the VEX app"), "no context unless the user asked for it");
+        assert!(!user_text(&plain).contains("Context from the VEX app"), "no context unless the user asked for it");
+        assert!(plain.contains("never claim you cannot see it"), "the system prompt tells the model how to treat shared context");
 
         let ctx = ContextPayload { label: "Now playing".into(), text: "Song X by Artist Y (playing)".into() };
         chat(&h, &cfg, None, "what song is this?", Some(ctx)).unwrap();
         let with = log.lock().unwrap().last().unwrap().body.clone();
-        assert!(with.contains("Song X by Artist Y") && with.contains("what song is this?"));
+        assert!(user_text(&with).contains("Song X by Artist Y") && user_text(&with).contains("what song is this?"));
+        assert!(user_text(&with).contains("[Context from the VEX app"), "shared context is clearly marked for the model");
         let conv = h.svc.chat_list();
         let stored = h.svc.chat_get(&conv.iter().find(|c| c.title.starts_with("what song")).unwrap().id).unwrap();
         assert_eq!(stored.messages[0].context_label.as_deref(), Some("Now playing"));

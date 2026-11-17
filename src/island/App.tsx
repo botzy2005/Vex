@@ -202,7 +202,7 @@ export function IslandApp() {
                     hasSession={!!session}
                     onOpenSettings={() => void backend.openSettings()}
                     onFocusChange={setInputFocused}
-                    buildContext={(wants) => buildContext(wants, { session, lyrics: lyrics.doc, activeIndex, positionMs: getPos() })}
+                    buildContext={(wants) => buildContext(wants, { session, lyrics: lyrics.doc, plainLyrics: lyrics.plain, activeIndex, positionMs: getPos() })}
                   />
                 )}
               </main>

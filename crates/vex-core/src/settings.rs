@@ -156,6 +156,21 @@ pub struct Ai {
 pub const DEFAULT_OLLAMA_KEEP_ALIVE: &str = "30m";
 pub const DEFAULT_OLLAMA_NUM_CTX: u32 = 4096;
 
+/// What the assistant is told about itself. It asks for substance (the old default said only "Keep replies
+/// short", which made small models vague), explains the app-context block so the model uses it instead of
+/// claiming it cannot see the user's music, and says what to do when no context was shared.
+pub const DEFAULT_SYSTEM_PROMPT: &str = "You are VEX, an assistant built into a Windows desktop Dynamic Island. \
+Give accurate, genuinely useful answers. For explanations, cover the key ideas with the correct terms, define them in plain language and include a concrete example; for simple questions answer directly in a sentence or two. \
+Match the length to the question: no filler, no restating the question, no needless warnings, but never leave out substance just to be brief. \
+Use Markdown (lists, tables, short code blocks) when it makes an answer clearer. \
+If you are not sure of something, say so instead of guessing, and never make up facts. \
+Some messages include a block that starts with \"[Context from the VEX app\" holding real, current details from the user's PC, such as the song that is playing or its lyrics. Use it, and never claim you cannot see it. \
+Without such a block you cannot see what they are listening to; if they ask about it, tell them to ask \"What song is playing?\" or press Share song in the chat.";
+
+/// Earlier built-in prompts. A saved settings file that still holds one of these unchanged (the user never
+/// edited it) is upgraded to the current default; a prompt the user wrote themselves is never touched.
+pub const LEGACY_SYSTEM_PROMPTS: &[&str] = &["You are a helpful assistant built into a desktop Dynamic Island. Keep replies short."];
+
 /// Accepts what Ollama accepts for `keep_alive`: a number with s/m/h, "0", or "-1".
 pub fn valid_keep_alive(s: &str) -> bool {
     if s == "-1" || s == "0" {
@@ -281,7 +296,7 @@ impl Default for Ai {
             ollama_think: false,
             ollama_keep_alive: DEFAULT_OLLAMA_KEEP_ALIVE.into(),
             ollama_num_ctx: DEFAULT_OLLAMA_NUM_CTX,
-            system_prompt: "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short.".into(),
+            system_prompt: DEFAULT_SYSTEM_PROMPT.into(),
         }
     }
 }
@@ -367,6 +382,9 @@ impl Settings {
         ai.ollama_endpoint = normalize_endpoint(&ai.ollama_endpoint).unwrap_or_else(|| DEFAULT_OLLAMA_ENDPOINT.into());
         ai.compatible_base_url = normalize_endpoint(&ai.compatible_base_url).unwrap_or_default();
         ai.system_prompt = ai.system_prompt.chars().take(4000).collect();
+        if LEGACY_SYSTEM_PROMPTS.contains(&ai.system_prompt.trim()) {
+            ai.system_prompt = DEFAULT_SYSTEM_PROMPT.into();
+        }
         ai.ollama_keep_alive = ai.ollama_keep_alive.trim().to_string();
         if !valid_keep_alive(&ai.ollama_keep_alive) {
             ai.ollama_keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE.into();
@@ -574,5 +592,27 @@ mod tests {
         for bad in ["", "m", "5", "5d", "1.5h", "-5m", "5 m", "99999m"] {
             assert!(!valid_keep_alive(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn default_prompt_asks_for_substance_and_explains_app_context() {
+        let p = DEFAULT_SYSTEM_PROMPT;
+        assert!(!p.to_lowercase().contains("keep replies short"), "the old blanket brevity rule must be gone");
+        assert!(p.contains("[Context from the VEX app"), "must match the marker compose_user_content adds");
+        assert!(p.contains("never claim you cannot see it"));
+        assert!(p.chars().count() < 1500, "stays small so it costs little on a small local model");
+    }
+
+    #[test]
+    fn an_untouched_legacy_prompt_is_upgraded_but_a_custom_one_is_kept() {
+        let legacy = LEGACY_SYSTEM_PROMPTS[0];
+        let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": legacy}})).unwrap();
+        assert_eq!(s.ai.system_prompt, DEFAULT_SYSTEM_PROMPT);
+        let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": "  ".to_string() + legacy + "\n"}})).unwrap();
+        assert_eq!(s.ai.system_prompt, DEFAULT_SYSTEM_PROMPT, "whitespace around the old default does not make it custom");
+        let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": "Answer like a pirate."}})).unwrap();
+        assert_eq!(s.ai.system_prompt, "Answer like a pirate.");
+        let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": ""}})).unwrap();
+        assert_eq!(s.ai.system_prompt, "", "clearing it on purpose still means no system prompt");
     }
 }

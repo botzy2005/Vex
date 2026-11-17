@@ -311,6 +311,10 @@ def main():
         H = "window.__harness"
         def goto_assistant():
             isl.hover(); page.wait_for_timeout(800)
+            if isl.get_attribute("data-expanded") != "true":  # the pointer was already over the island: no hover event fired
+                page.mouse.move(5, 380); page.wait_for_timeout(300); isl.hover(); page.wait_for_timeout(900)
+            if isl.get_attribute("data-expanded") != "true":
+                page.evaluate("window.__harness.emitIslandToggle()"); page.wait_for_timeout(900)
             page.locator('[data-testid="tab-assistant"]').click(); page.wait_for_timeout(300)
         def say(msg):
             inp = page.locator('[data-testid="assistant-input"]'); inp.click(); inp.fill(msg); page.keyboard.press("Enter")
@@ -413,6 +417,54 @@ def main():
             say("How do I play a song on guitar?"); page.wait_for_timeout(500)
             assert last_send()["context"] is None
         check("song context is attached only to messages that ask about the music, and is shown on the message", ctx_only_when_asked)
+
+        def ctx_real_phrasings():
+            # the wording from real use: none of these matched before
+            for q in ["What song am I currently listening to?", "What song is this?", "what's playing", "who sings this", "Who is the artist?"]:
+                say(q); page.wait_for_timeout(450)
+                c = last_send()["context"]
+                assert c and "Night Drive" in c["text"] and "The Testers" in c["text"], (q, c)
+                assert "lyrics" not in c["label"].lower(), (q, c["label"])  # a song question does not drag the lyrics along
+        check("natural questions like 'What song am I currently listening to?' attach the title and artist", ctx_real_phrasings)
+
+        def ctx_unrelated_stays_private():
+            for q in ["Explain cloud security in simple terms.", "Write a song about cats", "recommend some songs for studying", "What's playing at the cinema tonight?", "Compare cloud security and network security in a table"]:
+                say(q); page.wait_for_timeout(450)
+                assert last_send()["context"] is None, (q, last_send()["context"])
+        check("unrelated questions (including music-adjacent ones) never carry the music", ctx_unrelated_stays_private)
+
+        def ctx_lyrics_only_when_asked():
+            page.evaluate("window.__harness.setLyricsReply({synced:'[00:01.00]first made-up line\\n[00:05.00]second made-up line\\n', plain:null, instrumental:false, source:'LRCLIB'})")
+            page.evaluate("window.__harness.setSession({title:'Lyric Track', artist:'LRC Band', durationMs:60000, positionMs:6000, status:'paused'})"); page.wait_for_timeout(900)
+            say("What song am I listening to?"); page.wait_for_timeout(450)
+            c = last_send()["context"]; assert c and "Lyric Track" in c["text"] and "made-up line" not in c["text"], c
+            say("Explain these lyrics"); page.wait_for_timeout(450)
+            c = last_send()["context"]; assert c and "first made-up line" in c["text"] and "second made-up line" in c["text"], c
+            assert "Lyrics" in c["label"], c
+            say("What does this song mean?"); page.wait_for_timeout(450)
+            c = last_send()["context"]; assert c and "made-up line" in c["text"], c
+        check("lyrics are sent only for lyric questions, and then with the title, artist and the lyrics", ctx_lyrics_only_when_asked)
+
+        def ctx_setting_off():
+            page.evaluate("window.__harness.patchSettings({ai:{contextOnRequest:false}})"); page.wait_for_timeout(300)
+            for q in ["What song am I currently listening to?", "Explain these lyrics"]:
+                say(q); page.wait_for_timeout(450)
+                assert last_send()["context"] is None, (q, last_send()["context"])
+            # ...but the Share buttons still work, one message at a time
+            page.locator('[data-testid="attach-song"]').click(); say("What is this?"); page.wait_for_timeout(450)
+            assert last_send()["context"] and "Lyric Track" in last_send()["context"]["text"]
+            say("and again"); page.wait_for_timeout(450)
+            assert last_send()["context"] is None, "a Share press applies to one message only"
+            page.evaluate("window.__harness.patchSettings({ai:{contextOnRequest:true}})"); page.wait_for_timeout(300)
+        check("'Share music only when I ask' off: nothing is sent unless a Share button is pressed", ctx_setting_off)
+
+        def nothing_playing():
+            page.evaluate("window.__harness.setSession(null)"); page.wait_for_timeout(500)
+            say("What song am I currently listening to?"); page.wait_for_timeout(450)
+            c = last_send()["context"]
+            assert c and "nothing is playing" in c["text"].lower(), c
+        check("with nothing playing the model is told so, rather than left to guess", nothing_playing)
+        page.evaluate("window.__harness.setSession({title:'Night Drive', artist:'The Testers', durationMs:200000, positionMs:62000, status:'playing'})"); page.wait_for_timeout(400)
 
         def ctx_chips():
             page.locator('[data-testid="attach-song"]').click()
@@ -695,6 +747,16 @@ def main():
             sp.locator('[data-testid="page-assistant"]').click(); sp.locator('[data-testid="face-state-thinking"]').click(); page.wait_for_timeout(500)
             expect(page.locator('[data-testid="assistant-face"]').first).to_have_attribute("data-state", "thinking")
         check("settings: face preview plays on the real island", face_preview_drives_island)
+
+        def prompt_default_and_reset():
+            sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
+            default = sget("ai-prompt").input_value()
+            assert default.startswith("You are VEX") and "keep replies short" not in default.lower(), default[:80]
+            sget("ai-prompt").fill("Answer like a pirate."); sget("ai-prompt").blur(); sp.wait_for_timeout(300)
+            assert json.loads(sp.evaluate("localStorage.getItem('islet-test-settings')"))["ai"]["systemPrompt"] == "Answer like a pirate."
+            sget("reset-prompt").click(); sp.wait_for_timeout(400)
+            assert sget("ai-prompt").input_value() == default
+        check("settings: the default prompt asks for substance, a custom one is kept, and Reset restores the default", prompt_default_and_reset)
 
         # ---- developer page + Ollama tuning ----
         def ollama_tuning_defaults():

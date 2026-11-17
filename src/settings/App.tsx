@@ -310,8 +310,11 @@ function AssistantPage({ s, update }: { s: Settings; update: Update }) {
         )}
       </Row>
 
-      <Row label="System prompt">
+      <Row label="System prompt" hint="The instructions the assistant always receives. The default asks for accurate, properly explained answers and tells it how to use the music you share.">
+        <div className="prompt-control">
         <textarea aria-label="System prompt" data-testid="ai-prompt" rows={3} defaultValue={ai.systemPrompt} key={ai.systemPrompt} onBlur={(e) => e.target.value !== ai.systemPrompt && update({ ai: { systemPrompt: e.target.value } })} />
+        <button type="button" className="link-btn" data-testid="reset-prompt" onClick={() => void update({ ai: { systemPrompt: null } } as unknown as SettingsPatch)}>Reset to default</button>
+        </div>
       </Row>
 
       <h3>Privacy and history</h3>
