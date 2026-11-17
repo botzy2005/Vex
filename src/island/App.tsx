@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AssistantFace } from '../assistant/AssistantFace';
 import { AssistantPanel } from '../assistant/AssistantPanel';
+import { buildContext } from '../assistant/context';
+import { useChat } from '../assistant/useChat';
 import { useAssistant, useBackend, useMedia, useResolvedTheme, useSettings, useSubscription } from '../backend/hooks';
 import { LetterLine } from '../lyrics/LetterLine';
 import { LineSwap } from '../lyrics/LineSwap';
@@ -27,6 +29,7 @@ export function IslandApp() {
   const { settings } = useSettings();
   const media = useMedia();
   const assistant = useAssistant();
+  const chat = useChat(backend, assistant);
   const session = media.session;
 
   const [tab, setTab] = useState<Tab>('music');
@@ -191,7 +194,17 @@ export function IslandApp() {
                     <LyricsView lyrics={lyrics} session={session} activeIndex={activeIndex} getPos={getPos} music={music} onSeek={seek} />
                   </div>
                 )}
-                {tab === 'assistant' && <AssistantPanel assistant={assistant} onFocusChange={setInputFocused} />}
+                {tab === 'assistant' && (
+                  <AssistantPanel
+                    assistant={assistant}
+                    chat={chat}
+                    ai={settings.ai}
+                    hasSession={!!session}
+                    onOpenSettings={() => void backend.openSettings()}
+                    onFocusChange={setInputFocused}
+                    buildContext={(wants) => buildContext(wants, { session, lyrics: lyrics.doc, activeIndex, positionMs: getPos() })}
+                  />
+                )}
               </main>
             </div>
           )}

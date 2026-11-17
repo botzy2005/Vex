@@ -41,3 +41,20 @@ input[type='color'] { width: 44px; height: 28px; border: 1px solid var(--line); 
 .face-preview .face { --face: var(--fg); }
 .dim { color: var(--dim); }
 .face { --accent: #0a84ff; }
+
+/* ---------- assistant connection ---------- */
+.btn { all: unset; box-sizing: border-box; padding: 6px 14px; border-radius: 8px; background: var(--chip); border: 1px solid var(--line); cursor: pointer; font-weight: 600; }
+.btn:hover:not(:disabled) { background: var(--accent); color: #fff; border-color: transparent; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.danger:hover:not(:disabled) { background: #d6453d; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.confirm { display: inline-flex; gap: 8px; }
+.key-control { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.key-row { display: flex; gap: 6px; }
+.key-state { font-size: 12px; color: var(--dim); }
+.key-state[data-saved='true'] { color: #4cc38a; }
+input[type='password'] { background: var(--chip); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; width: 200px; }
+input[type='password']:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.status-line { margin: 2px 0 8px; padding: 8px 12px; border-radius: 8px; background: var(--chip); font-size: 12.5px; line-height: 1.45; user-select: text; }
+.status-line[data-ok='true'] { border-left: 3px solid #4cc38a; }
+.status-line[data-ok='false'], .status-line.bad { border-left: 3px solid #e5534b; color: #ff7b72; }

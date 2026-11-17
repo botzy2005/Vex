@@ -272,3 +272,80 @@ describe('letter sweep', () => {
     expect(headPosition(line.text, line, 9000, 20_000)).toBe(9);
   });
 });
+
+import { parseInline, parseMarkdown, isSafeUrl } from '../src/assistant/markdown';
+import { buildContext, detectContextRequest } from '../src/assistant/context';
+
+describe('markdown', () => {
+  it('parses headings, paragraphs, lists and rules', () => {
+    const b = parseMarkdown('# Title\n\nHello **world**.\n\n- a\n- b\n\n1. one\n2. two\n\n---');
+    expect(b.map((x) => x.t)).toEqual(['h', 'p', 'ul', 'ol', 'hr']);
+    expect((b[2] as { items: unknown[] }).items).toHaveLength(2);
+  });
+  it('parses fenced code and keeps its content literal', () => {
+    const b = parseMarkdown('```ts\nconst a = **1**;\n```\nafter');
+    expect(b[0]).toEqual({ t: 'code', lang: 'ts', s: 'const a = **1**;' });
+    expect(b[1].t).toBe('p');
+  });
+  it('an unfinished code fence (mid-stream) still renders as code', () => {
+    const b = parseMarkdown('Here:\n```py\nprint(1)');
+    expect(b[1]).toEqual({ t: 'code', lang: 'py', s: 'print(1)' });
+  });
+  it('inline: bold, italic, code and nesting', () => {
+    expect(parseInline('a **b *c*** d')).toEqual([
+      { t: 'text', s: 'a ' },
+      { t: 'b', c: [{ t: 'text', s: 'b ' }, { t: 'i', c: [{ t: 'text', s: 'c' }] }] },
+      { t: 'text', s: ' d' },
+    ]);
+    expect(parseInline('use `x**y`')[1]).toEqual({ t: 'code', s: 'x**y' });
+  });
+  it('unmatched markers stay literal (streaming)', () => {
+    expect(parseInline('half **bold')).toEqual([{ t: 'text', s: 'half **bold' }]);
+    expect(parseInline('snake_case_name is fine')).toEqual([{ t: 'text', s: 'snake_case_name is fine' }]);
+    expect(parseInline('2 * 3 * 4')).toEqual([{ t: 'text', s: '2 * 3 * 4' }]);
+  });
+  it('only http(s) and mailto links are ever produced', () => {
+    expect(isSafeUrl('https://example.com/a?b=1')).toBe(true);
+    expect(isSafeUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeUrl('data:text/html,hi')).toBe(false);
+    expect(parseInline('[x](javascript:alert(1))')).toEqual([{ t: 'text', s: '[x](javascript:alert(1))' }]);
+    expect(parseInline('[docs](https://example.com)')[0]).toMatchObject({ t: 'a', href: 'https://example.com' });
+  });
+  it('raw HTML in a reply is text, never markup', () => {
+    const b = parseMarkdown('<img src=x onerror=alert(1)>');
+    expect(b).toEqual([{ t: 'p', c: [{ t: 'text', s: '<img src=x onerror=alert(1)>' }] }]);
+  });
+});
+
+describe('app context', () => {
+  const session = { title: 'Night Drive', artist: 'The Testers', album: 'LP', durationMs: 200000, status: 'playing' } as never;
+  const lyrics = { source: 'LRCLIB', lines: [{ timeMs: 0, text: 'line one' }, { timeMs: 1000, text: 'line two' }] };
+  it('detects questions about the music, and only those', () => {
+    expect(detectContextRequest('What song is playing?')).toEqual({ song: true, lyrics: false });
+    expect(detectContextRequest("who sings this song")).toMatchObject({ song: true });
+    expect(detectContextRequest('Explain these lyrics')).toEqual({ song: true, lyrics: true });
+    expect(detectContextRequest('what do the lyrics mean')).toMatchObject({ lyrics: true });
+    expect(detectContextRequest('Write a poem about the sea')).toEqual({ song: false, lyrics: false });
+    expect(detectContextRequest('How do I play a song on guitar?')).toEqual({ song: false, lyrics: false });
+  });
+  it('attaches nothing unless asked', () => {
+    expect(buildContext({ song: false, lyrics: false }, { session, lyrics: null, activeIndex: -1, positionMs: 0 })).toBeNull();
+  });
+  it('song context has title, artist and state', () => {
+    const c = buildContext({ song: true, lyrics: false }, { session, lyrics: null, activeIndex: -1, positionMs: 65000 })!;
+    expect(c.label).toBe('Now playing');
+    expect(c.text).toContain('"Night Drive" by The Testers');
+    expect(c.text).toContain('playing (1:05 of 3:20)');
+    expect(c.text).not.toContain('Lyrics');
+  });
+  it('lyrics context includes the lines and marks the current one', () => {
+    const c = buildContext({ song: true, lyrics: true }, { session, lyrics, activeIndex: 1, positionMs: 1500 })!;
+    expect(c.label).toBe('Now playing + Lyrics');
+    expect(c.text).toContain('line two"');
+    expect(c.text).toContain('line one\nline two');
+  });
+  it('is honest when nothing is playing or no lyrics exist', () => {
+    expect(buildContext({ song: true, lyrics: true }, { session: null, lyrics: null, activeIndex: -1, positionMs: 0 })!.text).toContain('nothing is playing');
+    expect(buildContext({ song: false, lyrics: true }, { session, lyrics: null, activeIndex: -1, positionMs: 0 })!.text).toContain('no lyrics loaded');
+  });
+});

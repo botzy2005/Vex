@@ -35,7 +35,7 @@ const COMPACT_SIZE: Record<CompactView, { w: number; h: number }> = {
 const EXPANDED_SIZE: Record<Tab, { w: number; h: number }> = {
   music: { w: 540, h: 218 },
   lyrics: { w: 540, h: 262 },
-  assistant: { w: 540, h: 232 },
+  assistant: { w: 540, h: 340 },
 };
 
 export interface LayoutInput {

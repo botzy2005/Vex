@@ -9,7 +9,13 @@
 import defaults from '../shared/defaults.json';
 import { mergePatch } from '../shared/merge';
 import type {
+  AiEvent,
+  AiTestResult,
   AssistantState,
+  ChatMessage,
+  ContextPayload,
+  Conversation,
+  ConversationSummary,
   LyricsFetchResult,
   LyricsQuery,
   MediaSession,
@@ -21,6 +27,13 @@ import type {
 import type { Backend, Unsub } from './backend';
 
 const KEY = 'islet-test-settings';
+
+export interface AiScript {
+  chunks?: string[];
+  delayMs?: number;
+  /** Make the reply fail after the chunks (or immediately when there are none). */
+  error?: { message: string; kind?: string };
+}
 
 export interface Harness {
   /** Replace (or clear) the simulated external media session. */
@@ -34,7 +47,15 @@ export interface Harness {
   emitIslandToggle(): void;
   readonly transportCalls: TransportCommand[];
   readonly windowSizes: Array<[number, number]>;
-  readonly assistantSends: string[];
+  /** Script the simulated model: reply chunks, per-chunk delay, or an error. */
+  setAiScript(script: AiScript): void;
+  /** Simulated Ollama service: whether it runs and which models it has installed. */
+  setOllama(o: { running: boolean; models: string[] }): void;
+  /** Keys the simulated provider accepts (anything else is rejected as invalid). */
+  setValidKeys(keys: string[]): void;
+  readonly aiSends: Array<{ conversationId: string | null; text: string; context: ContextPayload | null; provider: string; model: string }>;
+  /** Forget everything in memory, as if the app restarted (history stays in storage). */
+  restartAi(): void;
   readonly settingsOpened: number;
 }
 
@@ -61,7 +82,30 @@ export function createTestBackend(): Backend {
 
   const calls: TransportCommand[] = [];
   const sizes: Array<[number, number]> = [];
-  const sends: string[] = [];
+  const aiSends: Harness['aiSends'] = [];
+  let script: AiScript = { chunks: ['Hello', ' from ', 'the test model.'], delayMs: 30 };
+  let ollama = { running: true, models: ['llama3.2:latest', 'qwen2.5:0.5b'] };
+  let validKeys = ['good-key-123'];
+  const keys = new Map<string, string>();
+  const aiSubs = new Set<(e: AiEvent) => void>();
+  let activeCancel: { cancelled: boolean } | null = null;
+  let nextRequest = 1;
+  const CHATS = 'vex-test-chats';
+  const loadChats = (): Conversation[] => {
+    try {
+      return JSON.parse(localStorage.getItem(CHATS) ?? '[]');
+    } catch {
+      return [];
+    }
+  };
+  const saveChats = (c: Conversation[]) => {
+    try {
+      localStorage.setItem(CHATS, JSON.stringify(c));
+    } catch {
+      /* ignore */
+    }
+  };
+  const emitAi = (e: AiEvent) => aiSubs.forEach((cb) => cb(e));
   let opened = 0;
   let lyricsReply: LyricsFetchResult | null | { error: string } = null;
   const lyricsCalls: LyricsQuery[] = [];
@@ -115,7 +159,19 @@ export function createTestBackend(): Backend {
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
     transportCalls: calls,
     windowSizes: sizes,
-    assistantSends: sends,
+    setAiScript: (sc) => {
+      script = sc;
+    },
+    setOllama: (o) => {
+      ollama = o;
+    },
+    setValidKeys: (k) => {
+      validKeys = k;
+    },
+    aiSends,
+    restartAi: () => {
+      activeCancel = null;
+    },
     get settingsOpened() {
       return opened;
     },
@@ -170,11 +226,96 @@ export function createTestBackend(): Backend {
       return lyricsReply;
     },
 
-    async assistantSend(text) {
-      sends.push(text);
-      // Mirrors the real shell until Milestone 5: no provider is connected.
-      throw new Error('No AI provider is connected yet (Milestone 5).');
+    async aiSend({ conversationId, text, context }) {
+      const provider = settings.ai.provider;
+      const model = settings.ai.models[provider] ?? '';
+      aiSends.push({ conversationId, text, context, provider, model });
+      if (activeCancel) throw new Error('VEX is still answering. Wait for it to finish or press Stop.');
+      const needsKey = ['openai', 'gemini', 'claude', 'openrouter'].includes(provider);
+      if (needsKey && !keys.has(provider)) throw new Error(`Add your ${provider} API key in Settings → Assistant.`);
+      if (!model) throw new Error('Choose a model in Settings → Assistant.');
+      const chats = loadChats();
+      let conv = chats.find((c) => c.id === conversationId);
+      if (!conv) {
+        conv = { id: `c${Date.now().toString(16)}-${chats.length + 1}`, title: 'New chat', createdMs: Date.now(), updatedMs: Date.now(), messages: [] };
+        chats.push(conv);
+      }
+      const user: ChatMessage = { role: 'user', content: text, tsMs: Date.now(), context: context?.text ?? null, contextLabel: context?.label ?? null };
+      if (conv.messages.length === 0) conv.title = text.length > 48 ? text.slice(0, 48) + '…' : text;
+      conv.messages.push(user);
+      conv.updatedMs = Date.now();
+      saveChats(chats);
+
+      const requestId = nextRequest++;
+      const flag = { cancelled: false };
+      activeCancel = flag;
+      const convId = conv.id;
+      const sc = script;
+      void (async () => {
+        let reply = '';
+        const finish = (kind: AiEvent['kind'], extra: Partial<AiEvent> = {}) => {
+          const cur = loadChats();
+          const c = cur.find((x) => x.id === convId);
+          if (c && reply) {
+            c.messages.push({ role: 'assistant', content: reply, tsMs: Date.now(), partial: kind !== 'done' });
+            c.updatedMs = Date.now();
+            saveChats(cur);
+          }
+          activeCancel = null;
+          emitAi({ requestId, conversationId: convId, kind, ...extra });
+        };
+        for (const chunk of sc.chunks ?? []) {
+          await new Promise((r) => setTimeout(r, sc.delayMs ?? 30));
+          if (flag.cancelled) return finish('cancelled');
+          reply += chunk;
+          emitAi({ requestId, conversationId: convId, kind: 'delta', text: chunk });
+        }
+        if (flag.cancelled) return finish('cancelled');
+        if (sc.error) return finish('error', { message: sc.error.message, errorKind: sc.error.kind ?? 'provider' });
+        finish('done');
+      })();
+      return { conversationId: convId, requestId };
     },
+    async aiCancel() {
+      if (activeCancel) activeCancel.cancelled = true;
+    },
+    onAiEvent: (cb) => sub(aiSubs, cb),
+    aiKeyStatus: async (p) => keys.has(p),
+    async aiSetKey(p, k) {
+      if (!k.trim() || /\s/.test(k.trim())) throw new Error('API keys can\'t contain spaces or line breaks. Paste just the key.');
+      if (p === 'ollama') throw new Error("Ollama doesn't use an API key.");
+      keys.set(p, k.trim());
+    },
+    aiClearKey: async (p) => void keys.delete(p),
+    async aiListModels(p) {
+      if (p === 'ollama') {
+        if (!ollama.running) throw new Error("Can't reach Ollama at http://localhost:11434. Make sure Ollama is running.");
+        return ollama.models;
+      }
+      if (!keys.has(p)) throw new Error(`Add your ${p} API key in Settings → Assistant.`);
+      if (!validKeys.includes(keys.get(p)!)) throw new Error(`${p} rejected the API key. Check or replace it in Settings → Assistant.`);
+      return [`${p}-model-a`, `${p}-model-b`];
+    },
+    async aiTest(p): Promise<AiTestResult> {
+      if (p === 'ollama') {
+        if (!ollama.running) return { ok: false, local: true, models: [], message: "Can't reach Ollama at http://localhost:11434. Make sure Ollama is running (open it from the Start menu, or run `ollama serve`)." };
+        if (ollama.models.length === 0)
+          return { ok: true, local: true, models: [], message: 'Ollama is running at http://localhost:11434, but no models are installed yet. Install one yourself, for example run `ollama pull llama3.2` in a terminal. VEX never downloads models for you.' };
+        return { ok: true, local: true, models: ollama.models, message: `Ollama is running at http://localhost:11434 with ${ollama.models.length} installed model(s).` };
+      }
+      if (!keys.has(p)) return { ok: false, local: false, models: [], message: `Add your ${p} API key in Settings → Assistant.` };
+      if (!validKeys.includes(keys.get(p)!)) return { ok: false, local: false, models: [], message: `${p} rejected the API key. Check or replace it in Settings → Assistant.` };
+      return { ok: true, local: false, models: [`${p}-model-a`, `${p}-model-b`], message: `Connected to ${p}. Your API key was accepted (2 models available).` };
+    },
+    async chatList(): Promise<ConversationSummary[]> {
+      return loadChats()
+        .map((c) => ({ id: c.id, title: c.title, updatedMs: c.updatedMs, messageCount: c.messages.length }))
+        .sort((a, b) => b.updatedMs - a.updatedMs);
+    },
+    chatGet: async (id) => loadChats().find((c) => c.id === id) ?? null,
+    chatDelete: async (id) => saveChats(loadChats().filter((c) => c.id !== id)),
+    chatClearAll: async () => saveChats([]),
+
     // Tauri events reach every window; BroadcastChannel stands in for that across test pages.
     assistantPreview: async (s) => {
       assistantSubs.forEach((cb) => cb(s));

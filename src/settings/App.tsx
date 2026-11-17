@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AssistantFace } from '../assistant/AssistantFace';
 import { useBackend, useResolvedTheme, useSettings } from '../backend/hooks';
-import type { AssistantState, MonitorInfo, Settings, SettingsPatch } from '../shared/types';
+import type { AiTestResult, AssistantState, MonitorInfo, Settings, SettingsPatch } from '../shared/types';
 import { CommitText, HotkeyInput, Row, Segmented, Select, Slider, Toggle } from './controls';
 
 type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'about';
@@ -126,6 +126,32 @@ function MusicPage({ s, update }: { s: Settings; update: Update }) {
 
 const FACE_STATES: AssistantState[] = ['idle', 'listening', 'thinking', 'speaking', 'error'];
 
+const PROVIDERS: Array<{ value: Settings['ai']['provider']; label: string }> = [
+  { value: 'ollama', label: 'Ollama (local, free)' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'gemini', label: 'Google Gemini' },
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'claude', label: 'Anthropic Claude' },
+  { value: 'openai-compatible', label: 'OpenAI-compatible server' },
+];
+
+const KEY_HELP: Record<string, string> = {
+  openai: 'Create a key at platform.openai.com/api-keys.',
+  gemini: 'Create a key in Google AI Studio (aistudio.google.com/apikey).',
+  openrouter: 'Create a key at openrouter.ai/keys.',
+  claude: 'Create a key in the Anthropic Console (console.anthropic.com).',
+  'openai-compatible': 'Only needed if your server asks for one.',
+};
+
+const PRIVACY: Record<string, string> = {
+  ollama: 'Messages go only to the Ollama address above. If that is this PC, nothing leaves it.',
+  openai: 'Your messages are sent to OpenAI.',
+  gemini: 'Your messages are sent to Google.',
+  openrouter: 'Your messages are sent to OpenRouter, which forwards them to the model you choose.',
+  claude: 'Your messages are sent to Anthropic.',
+  'openai-compatible': 'Your messages are sent to the server address above.',
+};
+
 function AssistantPage({ s, update }: { s: Settings; update: Update }) {
   const backend = useBackend();
   const [shown, setShown] = useState<AssistantState>('idle');
@@ -134,29 +160,146 @@ function AssistantPage({ s, update }: { s: Settings; update: Update }) {
     void backend.assistantPreview(st);
   };
   useEffect(() => () => void backend.assistantPreview('idle'), [backend]);
+
   const ai = s.ai;
+  const p = ai.provider;
+  const model = ai.models[p] ?? '';
+  const usesKey = p !== 'ollama';
+  const [keySaved, setKeySaved] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [test, setTest] = useState<AiTestResult | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [clearMsg, setClearMsg] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const runTest = async () => {
+    setBusy(true);
+    try {
+      const r = await backend.aiTest(p);
+      setTest(r);
+      if (r.models.length) setModels(r.models);
+      else if (!r.ok) setModels([]);
+      // OpenRouter's connection check does not list models; fetch them separately when it passed.
+      if (r.ok && p === 'openrouter') setModels(await backend.aiListModels(p).catch(() => []));
+    } catch (e) {
+      setTest({ ok: false, message: String(e instanceof Error ? e.message : e), models: [], local: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // When the provider changes: forget the previous provider's results, read the key status, and
+  // look for a local Ollama straight away (that request never leaves this PC).
+  useEffect(() => {
+    setTest(null);
+    setModels([]);
+    setKeyInput('');
+    setKeyError(null);
+    backend.aiKeyStatus(p).then(setKeySaved, () => setKeySaved(false));
+    if (p === 'ollama') void runTest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p, backend]);
+
+  const saveKey = async () => {
+    setKeyError(null);
+    try {
+      await backend.aiSetKey(p, keyInput);
+      setKeyInput('');
+      setKeySaved(true);
+      await runTest(); // validate the key straight away
+    } catch (e) {
+      setKeyError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const clearKey = async () => {
+    await backend.aiClearKey(p);
+    setKeySaved(false);
+    setTest(null);
+    setModels([]);
+  };
+  const setModel = (v: string) => update({ ai: { models: { [p]: v } } });
+  const withCurrent = model && !models.includes(model) ? [model, ...models] : models;
+
   return (
     <section>
       <h2>Assistant</h2>
-      <div className="callout">The assistant's model connection, voice and computer controls arrive in Milestones 5–7. Here you can preview how it looks on the island.</div>
       <Row label="Preview the assistant face" hint="Plays the chosen state on the real island.">
         <div className="face-preview">
           <AssistantFace state={shown} size={96} />
           <Segmented<AssistantState> label="Assistant state" testId="face-state" value={shown} onChange={preview} options={FACE_STATES.map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))} />
         </div>
       </Row>
-      <Row label="Provider" hint="Saved now; connected in Milestone 5. Local Ollama needs no account or key.">
-        <Select<Settings['ai']['provider']> label="AI provider" testId="ai-provider" value={ai.provider} onChange={(v) => update({ ai: { provider: v } })}
-          options={[
-            { value: 'ollama', label: 'Ollama (local, free)' }, { value: 'openai-compatible', label: 'OpenAI-compatible server' },
-            { value: 'openrouter', label: 'OpenRouter' }, { value: 'gemini', label: 'Google Gemini' },
-            { value: 'claude', label: 'Anthropic Claude' }, { value: 'openai', label: 'OpenAI' },
-          ]} />
+
+      <h3>AI provider</h3>
+      <Row label="Provider" hint="Ollama runs models on your own PC with no account or key.">
+        <Select<Settings['ai']['provider']> label="AI provider" testId="ai-provider" value={p} onChange={(v) => update({ ai: { provider: v } })} options={PROVIDERS} />
       </Row>
-      <Row label="Model" hint="Model name as the provider expects it, e.g. llama3.2."><CommitText label="Model" testId="ai-model" width={220} placeholder="e.g. llama3.2" value={ai.model} onCommit={(v) => update({ ai: { model: v } })} /></Row>
+
+      {p === 'ollama' && (
+        <Row label="Ollama address" hint="Where Ollama is listening. The default is this PC.">
+          <CommitText label="Ollama address" testId="ollama-endpoint" width={260} value={ai.ollamaEndpoint} onCommit={(v) => update({ ai: { ollamaEndpoint: v } })} />
+        </Row>
+      )}
+      {p === 'openai-compatible' && (
+        <Row label="Server address" hint="The base URL including /v1, e.g. http://localhost:1234/v1 for LM Studio.">
+          <CommitText label="Server address" testId="compat-endpoint" width={260} placeholder="http://localhost:1234/v1" value={ai.compatibleBaseUrl} onCommit={(v) => update({ ai: { compatibleBaseUrl: v } })} />
+        </Row>
+      )}
+
+      {usesKey && (
+        <Row label="API key" hint={`${KEY_HELP[p] ?? ''} Stored in Windows Credential Manager, never in VEX's settings file.`}>
+          <div className="key-control">
+            <div className="key-state" data-testid="key-state" data-saved={keySaved}>{keySaved ? '● Key saved' : '○ No key saved'}</div>
+            <div className="key-row">
+              <input type="password" autoComplete="off" spellCheck={false} aria-label="API key" data-testid="ai-key" placeholder={keySaved ? 'Paste a new key to replace it' : 'Paste your key'} value={keyInput} onChange={(e) => setKeyInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && keyInput.trim() && void saveKey()} />
+              <button type="button" className="btn" disabled={!keyInput.trim()} data-testid="save-key" onClick={() => void saveKey()}>Save key</button>
+              <button type="button" className="btn danger" disabled={!keySaved} data-testid="clear-key" onClick={() => void clearKey()}>Clear</button>
+            </div>
+            {keyError && <div className="status-line bad" role="alert" data-testid="key-error">{keyError}</div>}
+          </div>
+        </Row>
+      )}
+
+      <Row label="Connection" hint={PRIVACY[p]}>
+        <button type="button" className="btn" disabled={busy} data-testid="test-connection" onClick={() => void runTest()}>{busy ? 'Testing…' : 'Test connection'}</button>
+      </Row>
+      {test && (
+        <div className="status-line" data-ok={test.ok} role="status" data-testid="test-result">
+          {test.ok ? '✓ ' : '✕ '}{test.message}
+        </div>
+      )}
+
+      <Row label="Model" hint={p === 'ollama' ? 'Only models already installed in Ollama are listed. VEX never downloads models.' : 'Pick from the list after testing, or type a model name.'}>
+        {p === 'ollama' ? (
+          <Select<string> label="Model" testId="ai-model" value={model} onChange={setModel} options={[{ value: '', label: models.length ? 'Choose a model…' : 'No models found' }, ...withCurrent.map((m) => ({ value: m, label: m }))]} />
+        ) : withCurrent.length > 0 ? (
+          <Select<string> label="Model" testId="ai-model" value={model} onChange={setModel} options={[{ value: '', label: 'Choose a model…' }, ...withCurrent.map((m) => ({ value: m, label: m }))]} />
+        ) : (
+          <CommitText label="Model" testId="ai-model-text" width={240} placeholder="model name" value={model} onCommit={setModel} />
+        )}
+      </Row>
+
       <Row label="System prompt">
         <textarea aria-label="System prompt" data-testid="ai-prompt" rows={3} defaultValue={ai.systemPrompt} key={ai.systemPrompt} onBlur={(e) => e.target.value !== ai.systemPrompt && update({ ai: { systemPrompt: e.target.value } })} />
       </Row>
+
+      <h3>Privacy and history</h3>
+      <Row label="Share music only when I ask" hint="The assistant sees the current song or lyrics only for a message that asks about them (for example “What song is playing?”). Turn off to share only with the buttons in the chat.">
+        <Toggle label="Share music only when I ask" testId="ctx-on-request" checked={ai.contextOnRequest} onChange={(v) => update({ ai: { contextOnRequest: v } })} />
+      </Row>
+      <Row label="Chat history" hint="Saved on this PC only (chats.json in VEX's data folder). Only the current chat is sent to your provider, and only the most recent messages of it.">
+        {confirmClear ? (
+          <span className="confirm">
+            <button type="button" className="btn danger" data-testid="confirm-clear-chats" onClick={async () => { await backend.chatClearAll(); setConfirmClear(false); setClearMsg('Chat history cleared.'); }}>Delete all chats</button>
+            <button type="button" className="btn" onClick={() => setConfirmClear(false)}>Cancel</button>
+          </span>
+        ) : (
+          <button type="button" className="btn" data-testid="clear-chats" onClick={() => { setClearMsg(null); setConfirmClear(true); }}>Clear chat history…</button>
+        )}
+      </Row>
+      {clearMsg && <div className="status-line" data-ok="true" role="status" data-testid="clear-msg">{clearMsg}</div>}
       <ResetButton testId="reset-ai" onClick={() => update({ ai: null } as unknown as SettingsPatch)} />
     </section>
   );
@@ -166,8 +309,8 @@ function AboutPage() {
   return (
     <section>
       <h2>About VEX</h2>
-      <p>VEX is a free Dynamic Island for Windows. Island shell, live Windows media controls, automatic synced lyrics, assistant face and settings.</p>
-      <p className="dim">VEX is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile. The only network request VEX makes is the optional lyrics lookup on LRCLIB (song title, artist, album and length), which you can turn off in Music & lyrics.</p>
+      <p>VEX is a free Dynamic Island for Windows. Island shell, live Windows media controls, automatic synced lyrics, and an AI assistant (Ollama, OpenAI, Gemini, OpenRouter, Claude).</p>
+      <p className="dim">VEX is an independent project. It is not affiliated with Notchify, Fenn or any other app, and uses none of their code, names or artwork. Settings are stored locally in your user profile. VEX only uses the network for two optional things: the lyrics lookup on LRCLIB (song title, artist, album and length; off in Music & lyrics) and the chat messages you send to the AI provider you choose. A local Ollama keeps chats on this PC. API keys are kept in Windows Credential Manager.</p>
       <h3>Roadmap</h3>
       <ul>
                 <li>Milestone 5–7 — AI providers, voice, system actions</li>

@@ -4,9 +4,12 @@
 //! the settings schema (with sanitising and merge-patch updates), atomic
 //! persistence, and the monitor/DPI placement math for the island window.
 
+pub mod ai;
+pub mod chat;
 pub mod lyrics;
 pub mod media;
 pub mod placement;
+pub mod secrets;
 pub mod settings;
 pub mod store;
 

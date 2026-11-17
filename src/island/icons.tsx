@@ -48,3 +48,15 @@ export const MicIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SendIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3.4 20.4 21 12 3.400 3.600l-.1 6.500L15 12 3.300 13.900l.1 6.500Z" /></svg>
 );
+export const PlusIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+);
+export const ClockIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="12" cy="12" r="8.500" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.500V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+export const StopIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="6.500" y="6.500" width="11" height="11" rx="2.500" /></svg>
+);
+export const TrashIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M5 7h14M10 7V5h4v2M7 7l.8 12h8.400L17 7M10.500 11v5M13.500 11v5" fill="none" stroke="currentColor" strokeWidth="1.700" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);

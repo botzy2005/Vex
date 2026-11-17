@@ -39,9 +39,20 @@ Legend: [x] implemented **and tested** as stated · [~] implemented, test covera
 - [x] Redesign: pure-black surface, drifting ambient glow from the artwork, larger artwork with glow, current lyric inside the player — 57 browser checks, screenshots reviewed
 - [ ] **Not verified (sandbox cannot reach lrclib.net, so no live request has ever been made):** real lookups on a PC, match quality across services (Spotify / YouTube titles), letter-animation smoothness on real hardware
 
+## Milestone 5 — AI chat
+- [x] Provider layer in `vex-core::ai`: request builders and streaming parsers for Ollama (NDJSON), OpenAI / OpenRouter / OpenAI-compatible (SSE), Gemini (SSE), Claude (SSE); model-list parsing; error classification that never echoes keys — 50+ Rust unit tests
+- [x] `AiService` (shell): history, one request at a time, cancel, key handling. Tested end to end with the real `ureq` transport against local HTTP servers that speak each provider's wire format: streaming arrives incrementally, follow-ups carry context, keys go only in headers, Stop keeps the partial reply, Ollama down / model missing / no model all give actionable errors, nothing is stored for refused messages — 19 shell tests
+- [x] Real Anthropic 401 response (captured from api.anthropic.com with a fake key) is classified as a bad key without echoing it
+- [x] Credentials: Windows Credential Manager via `keyring` (Windows build only; in-memory on Linux dev builds). Keys are never returned to the UI, logged or written to settings
+- [x] Chat UI: streaming, typing indicator, Stop, Markdown (own safe parser, no HTML injection), new chat, history list with timestamps, delete, clear all, persistence across restart
+- [x] Settings → Assistant: provider, per-provider model, API key save/clear, Ollama and custom endpoints, Test connection, installed-model list
+- [x] App context only when asked (intent detection + one-shot buttons + a setting to turn it off), shown on the message — unit + browser tests
+- [x] Browser tests (79) with a scripted model double; unit tests (45)
+- [ ] **Not verified (needs your PC):** a real Ollama conversation and model list; real OpenAI / Gemini / OpenRouter / Claude replies with a valid key (their hosts are not reachable from the build sandbox, so those parsers are checked against the documented wire formats only); Windows Credential Manager round trip beyond the CI check; chat UI look and feel inside the real transparent window
+- [ ] Not done: clickable links in replies (shown as text with the address), proxy support, voice (Milestone 6)
+
 ## Milestones not started
 - [ ] M4 Remaining settings (startup, notifications, privacy, wallpaper accent)
-- [ ] M5 AI providers (Ollama first) — fills `assistant_send`
 - [ ] M6 Voice in/out
 - [ ] M7 System actions + permission layer + emergency stop
 - [ ] M8 Utilities · M9 Plugins · M10 Taskbar modes · M11 Installer polish, signing, performance pass

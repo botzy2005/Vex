@@ -1,5 +1,11 @@
 import type {
+  AiEvent,
+  AiTestResult,
   AssistantState,
+  ContextPayload,
+  Conversation,
+  ConversationSummary,
+  SendResult,
   LyricsFetchResult,
   LyricsQuery,
   MediaState,
@@ -43,8 +49,31 @@ export interface Backend {
    */
   lyricsFetch(track: LyricsQuery): Promise<LyricsFetchResult | null>;
 
-  /** Rejects with a human-readable reason when no AI provider is connected (Milestone 5). */
-  assistantSend(text: string): Promise<void>;
+  /**
+   * Send a chat message. Resolves once the request has started (the answer then streams
+   * through `onAiEvent`); rejects with a readable reason if nothing could be started
+   * (no model chosen, no API key, still answering…). In that case nothing is stored.
+   */
+  aiSend(args: { conversationId: string | null; text: string; context: ContextPayload | null }): Promise<SendResult>;
+  /** Stop the answer that is currently streaming. */
+  aiCancel(): Promise<void>;
+  onAiEvent(cb: (e: AiEvent) => void): Promise<Unsub>;
+
+  /** Whether an API key is saved for this provider. The key itself is never returned. */
+  aiKeyStatus(provider: string): Promise<boolean>;
+  /** Save a key to the OS credential store (Windows Credential Manager). */
+  aiSetKey(provider: string, key: string): Promise<void>;
+  aiClearKey(provider: string): Promise<void>;
+  /** Models the provider (or the local Ollama install) offers. Rejects with a readable reason. */
+  aiListModels(provider: string): Promise<string[]>;
+  /** Check the connection / key. Never rejects for an expected failure: `ok` is false with a message. */
+  aiTest(provider: string): Promise<AiTestResult>;
+
+  chatList(): Promise<ConversationSummary[]>;
+  chatGet(id: string): Promise<Conversation | null>;
+  chatDelete(id: string): Promise<void>;
+  chatClearAll(): Promise<void>;
+
   /** Show an assistant state on the island (used by Settings to preview the face). */
   assistantPreview(state: AssistantState): Promise<void>;
   onAssistantState(cb: (s: AssistantState) => void): Promise<Unsub>;

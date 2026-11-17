@@ -28,8 +28,8 @@
 | Interface | Today | Fulfilled by |
 |---|---|---|
 | `LyricsProvider` (`src/lyrics/provider.ts`) | user `.lrc` files, then LRCLIB (native fetch in `src-tauri/src/lyrics.rs`, logic in `vex-core::lyrics`) | more providers / manual search |
-| `assistant_send` / `assistant-state` event | sending reports "No AI provider is connected yet" | M5 (providers), M6 (voice) |
-| Settings `ai.*` | stored, not used | M5 |
+| `ai_send` / `ai-event` stream, `ai_*` and `chat_*` commands | real chat: Ollama, OpenAI, Gemini, OpenRouter, Claude, OpenAI-compatible; history in `chats.json`; keys in Windows Credential Manager | M6 (voice) |
+| `assistant-state` event | drives the assistant face (thinking while an answer is on its way) | M6 (voice) |
 
 ## Media (Milestone 2)
 ```

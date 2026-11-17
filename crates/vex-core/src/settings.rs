@@ -2,6 +2,7 @@
 //! mirror lives in `src/shared/types.ts` and `src/shared/defaults.json` is
 //! checked against `Settings::default()` by a unit test so they cannot drift.
 
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -131,8 +132,64 @@ pub struct Music {
 #[serde(rename_all = "camelCase", default)]
 pub struct Ai {
     pub provider: AiProvider,
-    pub model: String,
+    /// Chosen model per provider, keyed by provider id (e.g. "gemini"), so switching providers
+    /// never carries one provider's model name into another.
+    pub models: BTreeMap<String, String>,
     pub system_prompt: String,
+    /// Where Ollama listens. Defaults to the local machine.
+    pub ollama_endpoint: String,
+    /// Base URL of an OpenAI-compatible server, including any `/v1` (empty until configured).
+    pub compatible_base_url: String,
+    /// Let the assistant see the current song / lyrics, but only for a message that asks about them.
+    /// When off, nothing about your music is ever sent unless you attach it by hand.
+    pub context_on_request: bool,
+}
+
+pub const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
+
+impl AiProvider {
+    pub const ALL: [AiProvider; 6] = [
+        AiProvider::Ollama,
+        AiProvider::OpenAi,
+        AiProvider::Gemini,
+        AiProvider::Claude,
+        AiProvider::OpenRouter,
+        AiProvider::OpenAiCompatible,
+    ];
+
+    /// The id used in settings JSON and as the credential name.
+    pub fn id(self) -> &'static str {
+        match self {
+            AiProvider::Ollama => "ollama",
+            AiProvider::OpenAi => "openai",
+            AiProvider::Gemini => "gemini",
+            AiProvider::Claude => "claude",
+            AiProvider::OpenRouter => "openrouter",
+            AiProvider::OpenAiCompatible => "openai-compatible",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<AiProvider> {
+        AiProvider::ALL.into_iter().find(|p| p.id() == id)
+    }
+}
+
+impl Ai {
+    /// The model chosen for `provider`, if any (never a default guess).
+    pub fn model_for(&self, provider: AiProvider) -> Option<&str> {
+        self.models.get(provider.id()).map(String::as_str).filter(|m| !m.is_empty())
+    }
+}
+
+/// Trim, drop a trailing slash, and accept only http(s) URLs.
+pub fn normalize_endpoint(raw: &str) -> Option<String> {
+    let t = raw.trim().trim_end_matches('/');
+    let lower = t.to_ascii_lowercase();
+    let rest = lower.strip_prefix("http://").or_else(|| lower.strip_prefix("https://"))?;
+    if rest.is_empty() || rest.contains(char::is_whitespace) || t.len() > 300 {
+        return None;
+    }
+    Some(t.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -196,7 +253,10 @@ impl Default for Ai {
     fn default() -> Self {
         Self {
             provider: AiProvider::Ollama,
-            model: String::new(),
+            models: BTreeMap::new(),
+            ollama_endpoint: DEFAULT_OLLAMA_ENDPOINT.into(),
+            compatible_base_url: String::new(),
+            context_on_request: true,
             system_prompt: "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short.".into(),
         }
     }
@@ -274,7 +334,14 @@ impl Settings {
         m.lyrics_offset_ms = m.lyrics_offset_ms.clamp(-5000, 5000);
 
         let ai = &mut self.ai;
-        ai.model = ai.model.trim().chars().take(200).collect();
+        ai.models = std::mem::take(&mut ai.models)
+            .into_iter()
+            .filter(|(k, _)| AiProvider::from_id(k).is_some())
+            .map(|(k, v)| (k, v.trim().chars().take(200).collect::<String>()))
+            .filter(|(_, v)| !v.is_empty())
+            .collect();
+        ai.ollama_endpoint = normalize_endpoint(&ai.ollama_endpoint).unwrap_or_else(|| DEFAULT_OLLAMA_ENDPOINT.into());
+        ai.compatible_base_url = normalize_endpoint(&ai.compatible_base_url).unwrap_or_default();
         ai.system_prompt = ai.system_prompt.chars().take(4000).collect();
     }
 
@@ -421,5 +488,45 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"appearance":{"theme":"light"}}"#).unwrap();
         assert_eq!(s.appearance.theme, Theme::Light);
         assert_eq!(s.island, Island::default());
+    }
+
+    #[test]
+    fn per_provider_models_merge_and_reset() {
+        let d = Settings::default();
+        let a = d.with_patch(&json!({"ai": {"models": {"gemini": "gem-x", "ollama": "llama3.2"}}})).unwrap();
+        let b = a.with_patch(&json!({"ai": {"models": {"gemini": "gem-y"}}})).unwrap();
+        assert_eq!(b.ai.model_for(AiProvider::Gemini), Some("gem-y"));
+        assert_eq!(b.ai.model_for(AiProvider::Ollama), Some("llama3.2"), "other providers keep their model");
+        let c = b.with_patch(&json!({"ai": {"models": {"gemini": null}}})).unwrap();
+        assert_eq!(c.ai.model_for(AiProvider::Gemini), None);
+        assert_eq!(Settings::default().ai.model_for(AiProvider::Ollama), None, "no model is ever assumed");
+    }
+
+    #[test]
+    fn ai_settings_are_sanitised() {
+        let s = Settings::default()
+            .with_patch(&json!({"ai": {
+                "models": {"nonsense": "x", "openai": "  gpt  ", "claude": "   "},
+                "ollamaEndpoint": "javascript:alert(1)",
+                "compatibleBaseUrl": "http://my server/v1"
+            }}))
+            .unwrap();
+        assert_eq!(s.ai.models.len(), 1);
+        assert_eq!(s.ai.model_for(AiProvider::OpenAi), Some("gpt"));
+        assert_eq!(s.ai.ollama_endpoint, DEFAULT_OLLAMA_ENDPOINT);
+        assert_eq!(s.ai.compatible_base_url, "");
+        let t = Settings::default()
+            .with_patch(&json!({"ai": {"ollamaEndpoint": " http://127.0.0.1:11434/ ", "compatibleBaseUrl": "https://api.example.com/v1/"}}))
+            .unwrap();
+        assert_eq!(t.ai.ollama_endpoint, "http://127.0.0.1:11434");
+        assert_eq!(t.ai.compatible_base_url, "https://api.example.com/v1");
+    }
+
+    #[test]
+    fn provider_ids_round_trip() {
+        for p in AiProvider::ALL {
+            assert_eq!(AiProvider::from_id(p.id()), Some(p));
+            assert_eq!(serde_json::to_value(p).unwrap(), json!(p.id()));
+        }
     }
 }

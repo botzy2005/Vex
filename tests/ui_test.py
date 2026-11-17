@@ -307,14 +307,174 @@ def main():
             assert len(set(shapes.values())) >= 4, shapes
         check("mouth shape/colour differs between states (CSS really applies)", face_differs)
 
-        def send_error():
-            page.evaluate("window.__harness.emitAssistant('idle')"); page.wait_for_timeout(200)
-            page.locator('[data-testid="tab-assistant"]').click()
-            inp = page.locator('[data-testid="assistant-input"]'); inp.click(); inp.fill("hello"); page.keyboard.press("Enter"); page.wait_for_timeout(500)
-            assert page.evaluate("window.__harness.assistantSends")[-1] == "hello"
-            expect(page.locator('[data-testid="assistant-status"]')).to_contain_text("No AI provider is connected yet")
-            expect(page.locator('[data-testid="assistant-face"]')).to_have_attribute("data-state", "error")
-        check("sending a message reports honestly that no provider exists yet (error state)", send_error)
+        # ---- real chat (the model behind it is the scripted test double; see src/backend/test.ts) ----
+        H = "window.__harness"
+        def goto_assistant():
+            isl.hover(); page.wait_for_timeout(800)
+            page.locator('[data-testid="tab-assistant"]').click(); page.wait_for_timeout(300)
+        def say(msg):
+            inp = page.locator('[data-testid="assistant-input"]'); inp.click(); inp.fill(msg); page.keyboard.press("Enter")
+        def texts(testid):
+            return page.locator(f'[data-testid="{testid}"]').all_inner_texts()
+        page.evaluate("window.__harness.emitAssistant('idle')"); page.wait_for_timeout(200)
+        goto_assistant()
+
+        def not_configured():
+            say("hello"); page.wait_for_timeout(400)
+            expect(page.locator('[data-testid="chat-error"]')).to_contain_text("Choose a model")
+            assert page.locator('[data-testid="msg-user"]').count() == 0, "a refused message must not be stored"
+            assert page.locator('[data-testid="assistant-input"]').input_value() == "hello", "the text must be kept"
+            expect(page.locator('[data-testid="setup-hint"]')).to_be_visible()
+        check("unconfigured assistant refuses honestly, stores nothing and keeps your text", not_configured)
+
+        page.evaluate("window.__harness.patchSettings({ai:{models:{ollama:'llama3.2:latest'}}})"); page.wait_for_timeout(300)
+        page.locator('[data-testid="assistant-input"]').fill("")
+
+        def streams():
+            page.evaluate("window.__harness.setAiScript({chunks:['Hello',' **world**',' from the model.'], delayMs:450})")
+            say("Hi there"); page.wait_for_timeout(150)
+            expect(page.locator('[data-testid="typing"]')).to_be_visible()
+            page.wait_for_timeout(700)
+            first = " ".join(texts("msg-streaming"))
+            assert "Hello" in first and "model" not in first, first
+            page.wait_for_timeout(1100)
+            assert page.locator('[data-testid="msg-streaming"]').count() == 0
+            final = texts("msg-assistant")[-1]
+            assert "Hello world from the model." in final.replace("\n", " "), final
+            assert page.locator('[data-testid="msg-assistant"] strong').inner_text() == "world"
+            expect(page.locator('[data-testid="assistant-send"]')).to_be_visible()
+        check("reply streams in pieces (typing dots, then growing text) and renders Markdown", streams)
+
+        def face_follows():
+            page.evaluate("window.__harness.setAiScript({chunks:['a','b','c','d'], delayMs:700})")
+            say("again"); page.wait_for_timeout(200)
+            page.locator('[data-testid="assistant-input"]').blur()
+            page.mouse.move(5, 380); page.wait_for_timeout(1500)
+            expect(isl).to_have_attribute("data-expanded", "false")
+            expect(isl).to_have_attribute("data-view", "assistant")  # the collapsed island shows the assistant at work
+            expect(page.locator('[data-testid="assistant-face"]').first).to_have_attribute("data-state", "thinking")
+            page.wait_for_timeout(2600)
+            assert isl.get_attribute("data-view") != "assistant", "back to normal when the reply is done"
+            goto_assistant()
+        check("while a reply is on its way the collapsed island shows the thinking face, then returns to normal", face_follows)
+
+        def follow_up_context():
+            sends = page.evaluate("window.__harness.aiSends")
+            assert sends[-2]["conversationId"] is None, "the first message starts a new conversation"
+            assert sends[-1]["conversationId"] is not None, "the follow-up carries the conversation id"
+            assert page.locator('[data-testid="msg-user"]').count() == 2 and page.locator('[data-testid="msg-assistant"]').count() == 2
+        check("a follow-up continues the same conversation", follow_up_context)
+
+        def code_and_lists():
+            page.evaluate("window.__harness.setAiScript({chunks:['Steps:\\n\\n1. one\\n2. two\\n\\n```py\\nprint(1)\\n```\\n'], delayMs:50})")
+            say("show code"); page.wait_for_timeout(900)
+            assert page.locator('[data-testid="msg-assistant"] ol li').count() >= 2
+            assert page.locator('[data-testid="msg-assistant"] pre code').last.inner_text() == "print(1)"
+            expect(page.locator('[data-testid="copy-code"]').last).to_be_visible()
+        check("lists and fenced code blocks render (with a Copy button)", code_and_lists)
+
+        def html_is_inert():
+            page.evaluate("window.__harness.setAiScript({chunks:['<img src=x onerror=window.__pwn=1> <script>window.__pwn=2</script>'], delayMs:50})")
+            say("xss"); page.wait_for_timeout(700)
+            assert page.evaluate("window.__pwn") is None
+            assert page.locator('[data-testid="msg-assistant"] img').count() == 0
+        check("HTML in a model reply is shown as text, never executed", html_is_inert)
+
+        def stop_button():
+            page.evaluate("window.__harness.setAiScript({chunks:['one ','two ','three ','four ','five'], delayMs:400})")
+            say("long one"); page.wait_for_timeout(1000)
+            page.locator('[data-testid="assistant-stop"]').click(); page.wait_for_timeout(900)
+            expect(page.locator('[data-testid="partial-note"]').last).to_be_visible()
+            assert "five" not in texts("msg-assistant")[-1]
+            expect(page.locator('[data-testid="assistant-send"]')).to_be_visible()
+        check("Stop ends the answer, keeps what arrived and marks it as cut short", stop_button)
+
+        def provider_error():
+            page.evaluate("window.__harness.setAiScript({chunks:['partial text'], delayMs:50, error:{message:'The provider rejected your API key.', kind:'auth'}})")
+            say("will fail"); page.wait_for_timeout(900)
+            expect(page.locator('[data-testid="chat-error"]')).to_contain_text("rejected your API key")
+            expect(page.locator('[data-testid="chat-error"]')).to_contain_text("Open Settings")
+            assert "partial text" in texts("msg-assistant")[-1]
+            page.locator('[data-testid="chat-error"] >> text=Dismiss').click()
+            assert page.locator('[data-testid="chat-error"]').count() == 0
+        check("a failed request shows a clear error, keeps the partial text, and can be dismissed", provider_error)
+
+        # app context: shared only when asked
+        page.evaluate("window.__harness.setAiScript({chunks:['ok'], delayMs:30})")
+        page.evaluate("window.__harness.setSession({title:'Night Drive', artist:'The Testers', durationMs:200000, positionMs:62000, status:'playing'})"); page.wait_for_timeout(400)
+        def last_send(): return page.evaluate("window.__harness.aiSends")[-1]
+        def ctx_only_when_asked():
+            say("Tell me a joke"); page.wait_for_timeout(500)
+            assert last_send()["context"] is None, last_send()
+            say("What song is playing?"); page.wait_for_timeout(500)
+            c = last_send()["context"]
+            assert c and "Night Drive" in c["text"] and "The Testers" in c["text"] and c["label"] == "Now playing", c
+            expect(page.locator('[data-testid="ctx-chip"]').last).to_contain_text("Now playing")
+            say("How do I play a song on guitar?"); page.wait_for_timeout(500)
+            assert last_send()["context"] is None
+        check("song context is attached only to messages that ask about the music, and is shown on the message", ctx_only_when_asked)
+
+        def ctx_chips():
+            page.locator('[data-testid="attach-song"]').click()
+            say("hello again"); page.wait_for_timeout(500)
+            assert last_send()["context"] and "Night Drive" in last_send()["context"]["text"]
+            say("and now plain"); page.wait_for_timeout(500)
+            assert last_send()["context"] is None, "the chip is one-shot"
+        check("the 'Share song' button attaches context to one message only", ctx_chips)
+
+        def ctx_off():
+            page.evaluate("window.__harness.patchSettings({ai:{contextOnRequest:false}})"); page.wait_for_timeout(300)
+            say("What song is playing?"); page.wait_for_timeout(500)
+            assert last_send()["context"] is None
+            expect(page.locator('.attach-note')).to_contain_text("never shared")
+            page.evaluate("window.__harness.patchSettings({ai:{contextOnRequest:true}})")
+        check("with 'share music only when I ask' off, nothing is ever shared automatically", ctx_off)
+        page.evaluate("window.__harness.setSession(null)"); page.wait_for_timeout(300)
+
+        def provider_switch():
+            page.evaluate("window.__harness.patchSettings({ai:{provider:'openai'}})"); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="model-chip"]')).to_contain_text("OpenAI")
+            expect(page.locator('[data-testid="model-chip"]')).to_contain_text("choose a model")
+            say("on openai"); page.wait_for_timeout(500)
+            expect(page.locator('[data-testid="chat-error"]')).to_contain_text("openai")
+            page.evaluate("window.__harness.patchSettings({ai:{provider:'ollama'}})"); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="model-chip"]')).to_contain_text("llama3.2:latest")
+        check("switching provider switches the model too (each provider keeps its own)", provider_switch)
+
+        def history_roundtrip():
+            page.locator('[data-testid="chat-error"] >> text=Dismiss').click() if page.locator('[data-testid="chat-error"]').count() else None
+            n_msgs = page.locator('[data-testid="msg-user"]').count()
+            page.locator('[data-testid="btn-new-chat"]').click(); page.wait_for_timeout(300)
+            assert page.locator('[data-testid="msg-user"]').count() == 0
+            page.evaluate("window.__harness.setAiScript({chunks:['fresh'], delayMs:30})")
+            say("second conversation"); page.wait_for_timeout(700)
+            page.locator('[data-testid="btn-history"]').click(); page.wait_for_timeout(300)
+            items = page.locator('[data-testid="history-item"]')
+            assert items.count() == 2, items.count()
+            assert "second conversation" in items.first.inner_text() and "messages" in items.first.inner_text()
+            items.nth(1).click(); page.wait_for_timeout(500)
+            assert page.locator('[data-testid="msg-user"]').count() == n_msgs, (page.locator('[data-testid="msg-user"]').count(), n_msgs)
+            expect(page.locator('[data-testid="msg-user"]').first).to_contain_text("Hi there")
+            assert page.locator('time').count() > 0
+        check("New chat, history list with timestamps, and reopening an older chat", history_roundtrip)
+
+        def survives_restart():
+            page.reload(); page.wait_for_selector('[data-testid="island"]'); page.wait_for_timeout(500)
+            goto_assistant()
+            assert page.locator('[data-testid="msg-user"]').count() >= 1
+            expect(page.locator('[data-testid="msg-user"]').first).to_contain_text("second conversation")
+        check("chat history persists across a restart and the latest chat reopens", survives_restart)
+
+        def delete_and_clear():
+            page.locator('[data-testid="btn-history"]').click(); page.wait_for_timeout(300)
+            page.locator('[data-testid="history-delete"]').first.click(); page.wait_for_timeout(300)
+            assert page.locator('[data-testid="history-item"]').count() == 1
+            page.locator('[data-testid="clear-history"]').click(); page.locator('[data-testid="confirm-clear-history"]').click(); page.wait_for_timeout(400)
+            assert page.locator('[data-testid="history-item"]').count() == 0
+            assert page.evaluate("JSON.parse(localStorage.getItem('vex-test-chats')||'[]').length") == 0
+        check("a chat can be deleted, and Clear all history (with confirmation) empties the store", delete_and_clear)
+        page.locator('[data-testid="btn-history"]').click() if page.locator('[data-testid="history-panel"]').count() else None
+        page.wait_for_timeout(200)
 
         def input_keeps_open():
             page.locator('[data-testid="assistant-input"]').click(); page.mouse.move(5, 380); page.wait_for_timeout(1800)
@@ -409,6 +569,75 @@ def main():
             sp.keyboard.press("Escape")
         check("settings: shortcut recorder captures Ctrl+Alt+K and ignores bare keys", hotkey_record)
 
+        # ---- assistant settings (provider, key, endpoint, connection test, models) ----
+        def sget(tid): return sp.locator(f'[data-testid="{tid}"]')
+        sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(400)
+
+        def ollama_detected():
+            expect(sget("test-result")).to_contain_text("2 installed model")
+            opts = sget("ai-model").locator("option").all_inner_texts()
+            assert "llama3.2:latest" in opts and "qwen2.5:0.5b" in opts, opts
+            expect(sget("ollama-endpoint")).to_have_value("http://localhost:11434")
+            assert sp.locator('[data-testid="ai-key"]').count() == 0, "Ollama needs no key"
+        check("settings: local Ollama is detected and its installed models are listed (no key field)", ollama_detected)
+
+        def pick_installed_model():
+            sget("ai-model").select_option("qwen2.5:0.5b"); sp.wait_for_timeout(300)
+            assert page.evaluate("JSON.parse(localStorage.getItem('islet-test-settings')).ai.models.ollama") == "qwen2.5:0.5b"
+        check("settings: choosing an installed model saves it", pick_installed_model)
+
+        def ollama_down():
+            sp.evaluate("window.__harness.setOllama({running:false, models:[]})")
+            sget("test-connection").click(); sp.wait_for_timeout(400)
+            expect(sget("test-result")).to_contain_text("Can't reach Ollama")
+            expect(sget("test-result")).to_contain_text("ollama serve")
+        check("settings: Ollama not running gives a helpful error", ollama_down)
+
+        def ollama_empty():
+            sp.evaluate("window.__harness.setOllama({running:true, models:[]})")
+            sget("test-connection").click(); sp.wait_for_timeout(400)
+            expect(sget("test-result")).to_contain_text("ollama pull")
+            expect(sget("test-result")).to_contain_text("never downloads")
+        check("settings: no installed models explains how to install one and downloads nothing", ollama_empty)
+        sp.evaluate("window.__harness.setOllama({running:true, models:['llama3.2:latest','qwen2.5:0.5b']})")
+
+        def key_flow():
+            sget("ai-provider").select_option("openai"); sp.wait_for_timeout(400)
+            expect(sget("key-state")).to_contain_text("No key saved")
+            sget("ai-key").fill("bad-key-999"); sget("save-key").click(); sp.wait_for_timeout(500)
+            expect(sget("key-state")).to_contain_text("Key saved")
+            expect(sget("test-result")).to_contain_text("rejected the API key")
+            assert sget("ai-key").input_value() == "", "the key is never shown again"
+            sget("ai-key").fill("good-key-123"); sget("save-key").click(); sp.wait_for_timeout(500)
+            expect(sget("test-result")).to_contain_text("Connected to openai")
+            assert "openai-model-a" in sget("ai-model").locator("option").all_inner_texts()
+            stored = page.evaluate("localStorage.getItem('islet-test-settings')")
+            assert "good-key-123" not in stored and "bad-key-999" not in stored, "keys must never be in the settings file"
+        check("settings: API key is saved, validated (bad key rejected, good key accepted) and never written to settings", key_flow)
+
+        def key_bad_input():
+            sget("ai-key").fill("has a space"); sget("save-key").click(); sp.wait_for_timeout(300)
+            expect(sget("key-error")).to_contain_text("can't contain spaces")
+        check("settings: a pasted key with spaces/line breaks is refused with an explanation", key_bad_input)
+
+        def key_clear_and_switch():
+            sget("clear-key").click(); sp.wait_for_timeout(300)
+            expect(sget("key-state")).to_contain_text("No key saved")
+            sget("ai-provider").select_option("ollama"); sp.wait_for_timeout(500)
+            expect(sget("test-result")).to_contain_text("installed model")
+            sget("ai-provider").select_option("openai"); sp.wait_for_timeout(300)
+            assert sp.locator('[data-testid="test-result"]').count() == 0, "results of another provider must not linger"
+            sget("ai-provider").select_option("ollama"); sp.wait_for_timeout(300)
+        check("settings: Clear removes the key; provider switching resets connection state", key_clear_and_switch)
+
+        def privacy_controls():
+            sget("ctx-on-request").click(); sp.wait_for_timeout(300)
+            assert page.evaluate("JSON.parse(localStorage.getItem('islet-test-settings')).ai.contextOnRequest") is False
+            sget("ctx-on-request").click(); sp.wait_for_timeout(300)
+            sget("clear-chats").click(); sget("confirm-clear-chats").click(); sp.wait_for_timeout(300)
+            expect(sget("clear-msg")).to_contain_text("cleared")
+        check("settings: music-sharing toggle persists; Clear chat history asks first and works", privacy_controls)
+
         def face_preview_drives_island():
             sp.locator('[data-testid="page-assistant"]').click(); sp.locator('[data-testid="face-state-thinking"]').click(); page.wait_for_timeout(500)
             expect(page.locator('[data-testid="assistant-face"]').first).to_have_attribute("data-state", "thinking")
@@ -428,7 +657,7 @@ def main():
         check("settings survive a reload", persists_reload)
 
         def no_errors():
-            real = [e for e in errors if "favicon" not in e and "No AI provider" not in e and "Failed to load resource" not in e]
+            real = [e for e in errors if "favicon" not in e and "Failed to load resource" not in e]
             assert not real, real
         check("no uncaught page errors or console errors", no_errors)
 

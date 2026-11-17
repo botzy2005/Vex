@@ -70,7 +70,8 @@ export interface AssistantHook {
   state: AssistantState;
   /** Last status or error text to show the user. */
   message: string | null;
-  send(text: string): Promise<void>;
+  /** Drive the face (chat does this while it waits for and streams an answer). */
+  set(state: AssistantState, message?: string | null): void;
 }
 
 const ERROR_RESET_MS = 6000;
@@ -81,36 +82,18 @@ export function useAssistant(): AssistantHook {
   const [message, setMessage] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
-  useSubscription<AssistantState>(
-    (cb) => backend.onAssistantState(cb),
-    (s) => {
-      window.clearTimeout(timer.current);
-      setState(s);
-      if (s !== 'error') setMessage(null);
-    },
-  );
+  const set = useCallback((s: AssistantState, msg: string | null = null) => {
+    window.clearTimeout(timer.current);
+    setState(s);
+    setMessage(s === 'error' ? msg : null);
+    if (s === 'error') timer.current = window.setTimeout(() => setState('idle'), ERROR_RESET_MS);
+  }, []);
+
+  // Also follows states sent from elsewhere (the Settings window previews the face this way).
+  useSubscription<AssistantState>((cb) => backend.onAssistantState(cb), (s) => set(s));
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const send = useCallback(
-    async (text: string) => {
-      const t = text.trim();
-      if (!t) return;
-      window.clearTimeout(timer.current);
-      setMessage(null);
-      setState('thinking');
-      try {
-        await backend.assistantSend(t);
-        setState('idle');
-      } catch (e) {
-        setState('error');
-        setMessage(e instanceof Error ? e.message : String(e));
-        timer.current = window.setTimeout(() => setState('idle'), ERROR_RESET_MS);
-      }
-    },
-    [backend],
-  );
-
-  return { state, message, send };
+  return { state, message, set };
 }
 
 /** Resolve the effective colour scheme ('system' follows the OS). */

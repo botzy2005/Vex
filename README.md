@@ -28,6 +28,21 @@ The tray icon has *Settings…* and *Quit*.
 `npm install && npm run dev:browser` opens the real UI in a browser with a clearly-labelled **simulated** player (drive it from the
 console via `window.__harness`). This harness is for development/testing only and is not in the shipped app.
 
+## AI assistant
+Open the island's **✦ Assistant** tab and chat. Set it up in **Settings → Assistant**:
+
+- **Ollama (local, free):** VEX uses the Ollama you already have (default `http://localhost:11434`). It detects whether Ollama is running,
+  lists the models *already installed* and lets you pick one. VEX never installs Ollama or downloads a model. No models yet? Run e.g.
+  `ollama pull llama3.2` yourself.
+- **OpenAI, Google Gemini, OpenRouter, Anthropic Claude, or any OpenAI-compatible server (LM Studio etc.):** choose the provider, paste
+  your API key, press **Test connection**, pick a model. Keys are stored in **Windows Credential Manager**, not in VEX's settings file,
+  and are never sent back to the UI.
+- Replies stream in, are rendered as Markdown, and follow-up questions keep the conversation. **Stop** ends an answer early.
+- Chats are saved on this PC (`chats.json` in VEX's data folder) and reopen after a restart; **History** (clock icon) lists, reopens,
+  and deletes chats, and Settings can clear them all. Only the current chat's recent messages are sent to your provider.
+- Your music is shared with the assistant **only when a message asks about it** ("What song is playing?", "Explain these lyrics") or you
+  press *Share song / Share lyrics*; the message shows what was shared. This can be switched off.
+
 ## Lyrics
 Lyrics are fetched automatically from LRCLIB (https://lrclib.net) when a song starts; this sends the title, artist, album and
 length, and can be turned off in Settings → Music & lyrics. If nothing is found you can load your own `.lrc` file from the

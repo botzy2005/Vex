@@ -34,7 +34,10 @@
   },
   "ai": {
     "provider": "ollama",
-    "model": "",
+    "models": {},
+    "ollamaEndpoint": "http://localhost:11434",
+    "compatibleBaseUrl": "",
+    "contextOnRequest": true,
     "systemPrompt": "You are a helpful assistant built into a desktop Dynamic Island. Keep replies short."
   }
 }

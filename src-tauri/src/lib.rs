@@ -6,8 +6,12 @@
 //! (Milestone 2); lyrics providers and AI still report "not available yet" so the UI
 //! can handle their absence honestly; they arrive in later milestones.
 
+mod ai;
 mod lyrics;
 mod media;
+mod secrets;
+#[cfg(windows)]
+mod secrets_windows;
 #[cfg(windows)]
 mod media_windows;
 
@@ -31,7 +35,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 const ISLAND: &str = "island";
 const SETTINGS: &str = "settings";
 
-struct AppState {
+pub struct AppState {
     settings: Mutex<Settings>,
     store: SettingsStore,
     /// Logical size the UI last asked the island window to have.
@@ -244,12 +248,7 @@ async fn lyrics_fetch(
         .map_err(|e| e.to_string())?
 }
 
-// Milestone 5/6 (assistant) ---------------------------------------------------
-
-#[tauri::command]
-fn assistant_send(_text: String) -> Result<(), String> {
-    Err("No AI provider is connected yet (Milestone 5).".into())
-}
+// Assistant face preview -------------------------------------------------------
 
 /// Lets the settings window drive the island's assistant face so every
 /// assistant state can be seen on the real overlay.
@@ -284,6 +283,12 @@ pub fn run() {
 
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
+
+            let chats = vex_core::chat::ChatStore::load(dir.join("chats.json"));
+            if chats.recovered_from_corrupt {
+                eprintln!("vex: chats.json was unreadable; it was moved aside");
+            }
+            app.manage(std::sync::Arc::new(ai::AiService::production(chats)));
 
             if let Some(w) = register_hotkey(app.handle(), &hotkey) {
                 eprintln!("vex: {w}");
@@ -345,7 +350,17 @@ pub fn run() {
             media_get_state,
             media_transport,
             lyrics_fetch,
-            assistant_send,
+            ai::ai_send,
+            ai::ai_cancel,
+            ai::ai_key_status,
+            ai::ai_set_key,
+            ai::ai_clear_key,
+            ai::ai_list_models,
+            ai::ai_test,
+            ai::chat_list,
+            ai::chat_get,
+            ai::chat_delete,
+            ai::chat_clear_all,
             assistant_preview_state,
         ])
         .run(tauri::generate_context!())

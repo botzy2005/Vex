@@ -44,8 +44,12 @@ export interface Settings {
   };
   ai: {
     provider: AiProvider;
-    model: string;
+    /** Chosen model per provider id; a provider with no entry has no model chosen. */
+    models: Record<string, string>;
     systemPrompt: string;
+    ollamaEndpoint: string;
+    compatibleBaseUrl: string;
+    contextOnRequest: boolean;
   };
 }
 
@@ -142,4 +146,63 @@ export interface LyricsFetchResult {
   plain: string | null;
   instrumental: boolean;
   source: string;
+}
+
+// ---- AI chat ----
+
+export type ChatRole = 'user' | 'assistant';
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  tsMs: number;
+  /** App context shared with this message (only when the user asked about it). */
+  context?: string | null;
+  contextLabel?: string | null;
+  /** A reply that was stopped or cut off. */
+  partial?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  createdMs: number;
+  updatedMs: number;
+  messages: ChatMessage[];
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedMs: number;
+  messageCount: number;
+}
+
+export interface ContextPayload {
+  label: string;
+  text: string;
+}
+
+export interface SendResult {
+  conversationId: string;
+  requestId: number;
+}
+
+export type AiEventKind = 'delta' | 'done' | 'error' | 'cancelled';
+
+export interface AiEvent {
+  requestId: number;
+  conversationId: string;
+  kind: AiEventKind;
+  text?: string | null;
+  message?: string | null;
+  errorKind?: string | null;
+}
+
+export interface AiTestResult {
+  ok: boolean;
+  message: string;
+  models: string[];
+  /** Ollama only: the endpoint is on this PC. */
+  local: boolean;
 }
