@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { parseMarkdown, type Block, type Inline } from './markdown';
+import { parseMarkdown, type Block, type Inline } from './markdownParse';
 
 function host(u: string): string {
   try {

@@ -273,7 +273,7 @@ describe('letter sweep', () => {
   });
 });
 
-import { parseInline, parseMarkdown, isSafeUrl } from '../src/assistant/markdown';
+import { parseInline, parseMarkdown, isSafeUrl } from '../src/assistant/markdownParse';
 import { buildContext, detectContextRequest } from '../src/assistant/context';
 
 describe('markdown', () => {
