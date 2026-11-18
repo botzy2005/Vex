@@ -24,6 +24,8 @@ import type {
   MediaState,
   NotificationAccess,
   NotificationsView,
+  ClipboardItem,
+  ClipboardStatus,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -76,6 +78,12 @@ export interface Harness {
   /** Force what the simulated Windows says about permission (null = allowed while the module is on). */
   setNotificationAccess(a: NotificationAccess | null): void;
   readonly notificationOpens: number[];
+  /** Simulate another program copying text or an image (recorded only while the module is on and not paused). */
+  clipboardCopyExternal(c: { kind: 'text'; text: string } | { kind: 'image'; seed?: number; sensitive?: boolean }): void;
+  /** What a "copy back" last put on the simulated clipboard. */
+  readonly clipboardWrites: Array<{ kind: 'text' | 'image'; text?: string; id: number }>;
+  /** Make the next copy-back fail with this message. */
+  failNextClipboardCopy(message: string | null): void;
 }
 
 declare global {
@@ -177,6 +185,75 @@ export function createTestBackend(): Backend {
   };
   notifChannel.postMessage({ type: 'hello' });
 
+  // ---- simulated clipboard history (stand-in for the native engine; the real rules live in Rust)
+  type SimClip = ClipboardItem & { text: string; hash: string };
+  const clipSubs = new Set<(s: ClipboardStatus) => void>();
+  let clipItems: SimClip[] = []; // oldest first
+  let nextCid = 1;
+  let skippedSensitive = 0;
+  let clipNote: string | null = null;
+  const clipboardWrites: Array<{ kind: 'text' | 'image'; text?: string; id: number }> = [];
+  let failCopy: string | null = null;
+  const clipStatus = (): ClipboardStatus => {
+    const c = settings.clipboard;
+    return {
+      enabled: c.enabled,
+      paused: c.paused,
+      recording: c.enabled && !c.paused,
+      count: clipItems.length,
+      pinned: clipItems.filter((i) => i.pinned).length,
+      imageBytes: clipItems.reduce((n, i) => n + i.bytes, 0),
+      skippedSensitive,
+      note: clipNote,
+      persist: c.persist,
+    };
+  };
+  // The island and the settings window are separate pages here; they share the simulated history over a channel
+  // (the real app has one history in Rust that both windows ask).
+  const clipChannel = new BroadcastChannel('vex-test-clipboard');
+  const publishClip = (broadcast = true) => {
+    clipSubs.forEach((cb) => cb(clipStatus()));
+    if (broadcast) clipChannel.postMessage({ type: 'state', items: clipItems, skippedSensitive, note: clipNote, nextId: nextCid });
+  };
+  const trimClip = () => {
+    const max = settings.clipboard.maxItems;
+    // Oldest unpinned entries go first; pinned ones are never trimmed.
+    while (clipItems.length > max) {
+      const i = clipItems.findIndex((x) => !x.pinned);
+      if (i < 0) break;
+      clipItems.splice(i, 1);
+    }
+  };
+  const reconfigureClip = () => {
+    const c = settings.clipboard;
+    if (!c.enabled) clipItems = [];
+    if (!c.images) clipItems = clipItems.filter((i) => i.kind !== 'image');
+    trimClip();
+    publishClip();
+  };
+  clipChannel.onmessage = (e) => {
+    const d = e.data as { type: string; items?: SimClip[]; skippedSensitive?: number; note?: string | null; nextId?: number };
+    if (d.type === 'state' && d.items) {
+      clipItems = d.items;
+      skippedSensitive = d.skippedSensitive ?? 0;
+      clipNote = d.note ?? null;
+      nextCid = Math.max(nextCid, d.nextId ?? 1);
+      publishClip(false);
+    } else if (d.type === 'hello' && (clipItems.length || skippedSensitive)) publishClip();
+  };
+  clipChannel.postMessage({ type: 'hello' });
+  const addClip = (item: Omit<SimClip, 'id' | 'tsMs' | 'pinned'>) => {
+    const last = clipItems[clipItems.length - 1];
+    if (last && last.hash === item.hash) return;
+    const existing = clipItems.findIndex((i) => i.hash === item.hash);
+    if (existing >= 0) {
+      const [it] = clipItems.splice(existing, 1);
+      clipItems.push({ ...it, tsMs: Date.now() });
+    } else clipItems.push({ ...item, id: nextCid++, tsMs: Date.now(), pinned: false });
+    trimClip();
+    publishClip();
+  };
+
   const sub = <T,>(set: Set<(v: T) => void>, cb: (v: T) => void): Promise<Unsub> => {
     set.add(cb);
     return Promise.resolve(() => void set.delete(cb));
@@ -192,6 +269,7 @@ export function createTestBackend(): Backend {
     if (e.key === KEY && e.newValue) {
       settings = mergePatch(structuredClone(defaults) as Settings, JSON.parse(e.newValue));
       settingsSubs.forEach((cb) => cb(settings));
+      reconfigureClip();
     }
   });
 
@@ -273,6 +351,46 @@ export function createTestBackend(): Backend {
       publishN();
     },
     notificationOpens,
+    clipboardWrites,
+    failNextClipboardCopy(m) {
+      failCopy = m;
+    },
+    clipboardCopyExternal(c) {
+      const cfg = settings.clipboard;
+      if (!cfg.enabled || cfg.paused) return;
+      if (c.kind === 'text') {
+        if (!c.text.trim()) return;
+        const looksSecret = cfg.skipSensitive && /^(ghp_|sk-)[A-Za-z0-9]{20,}$/.test(c.text.trim());
+        if (looksSecret) {
+          skippedSensitive++;
+          publishClip();
+          return;
+        }
+        const lines = c.text.split('\n').filter((l) => l.trim());
+        addClip({
+          kind: 'text',
+          text: c.text,
+          hash: `t:${c.text}`,
+          preview: lines.slice(0, 4).join('\n').slice(0, 240),
+          chars: [...c.text].length,
+          lines: lines.length,
+          width: 0,
+          height: 0,
+          bytes: 0,
+          thumb: null,
+        });
+      } else {
+        if (!cfg.images) return;
+        if (c.sensitive) {
+          skippedSensitive++;
+          publishClip();
+          return;
+        }
+        const seed = c.seed ?? 1;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="hsl(${(seed * 67) % 360},70%,50%)"/></svg>`;
+        addClip({ kind: 'image', text: '', hash: `i:${seed}`, preview: '', chars: 0, lines: 0, width: 1280, height: 720, bytes: 4096, thumb: `data:image/svg+xml;base64,${btoa(svg)}` });
+      }
+    },
   };
   window.__harness = harness;
 
@@ -286,6 +404,7 @@ export function createTestBackend(): Backend {
     }
     settingsSubs.forEach((cb) => cb(settings));
     reconfigureN();
+    reconfigureClip();
     return { settings, warnings: [] as string[] };
   }
   harness.patchSettings = async (p) => void (await applyPatch(p));
@@ -467,6 +586,42 @@ export function createTestBackend(): Backend {
       notificationOpens.push(id);
       nview = { ...nview, entries: nview.entries.map((e) => (e.id === id ? { ...e, unread: false } : e)) };
       publishN();
+    },
+
+    clipboardStatus: async () => clipStatus(),
+    onClipboard: (cb) => sub(clipSubs, cb),
+    async clipboardList(query) {
+      const q = query.trim().toLowerCase();
+      const list = [...clipItems]
+        .reverse()
+        .filter((i) => (i.kind === 'text' ? !q || i.text.toLowerCase().includes(q) : !q))
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned));
+      return list.map(({ text: _t, hash: _h, ...view }) => view);
+    },
+    async clipboardCopy(id) {
+      if (failCopy) {
+        const m = failCopy;
+        failCopy = null;
+        throw new Error(m);
+      }
+      const it = clipItems.find((i) => i.id === id);
+      if (!it) throw new Error('That entry is no longer in the history.');
+      clipboardWrites.push({ kind: it.kind, text: it.kind === 'text' ? it.text : undefined, id });
+      clipItems = [...clipItems.filter((i) => i.id !== id), { ...it, tsMs: Date.now() }];
+      publishClip();
+    },
+    async clipboardPin(id, pinned) {
+      if (!clipItems.some((i) => i.id === id)) throw new Error('That entry is no longer in the history.');
+      clipItems = clipItems.map((i) => (i.id === id ? { ...i, pinned } : i));
+      publishClip();
+    },
+    async clipboardDelete(id) {
+      clipItems = clipItems.filter((i) => i.id !== id);
+      publishClip();
+    },
+    async clipboardClear(keepPinned) {
+      clipItems = keepPinned ? clipItems.filter((i) => i.pinned) : [];
+      publishClip();
     },
 
     // Tauri events reach every window; BroadcastChannel stands in for that across test pages.

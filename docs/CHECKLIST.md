@@ -99,3 +99,18 @@ Needs the user's PC:
       permission was given, or why notifications are unavailable (see above).
 - [ ] If allowed: trigger a notification from any app; confirm the island preview, panel, grouping, remove, open-app.
 - [ ] CI step "Windows media API smoke test" now also prints what the real listener returned on a runner.
+
+## Clipboard history
+
+Built and tested in the sandbox (Rust core tests with a fake clipboard, vitest, Playwright with a simulated source):
+- Text and image history, newest first, pinned first; an immediate repeat is stored once; search; pin; delete; Clear (keeps pinned); size limit that never trims pinned entries.
+- Off by default. Nothing copied before enabling, resuming, or during a pause is ever read. Disabling forgets the history. Persistence is off by default; turning it off deletes saved files. Saved files are not encrypted.
+- Password-manager copies (`ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory = 0`) and text that looks like a key or card number are skipped, with a notice. The shape filter is a heuristic and can miss things.
+- The tab shows a red dot while recording; the panel and Settings always state whether it is recording, paused or off.
+- Clipboard content is never sent to the assistant (covered by a UI test) and events carry only the status, not content.
+
+Needs your PC (the Windows code is only compiled by CI here, never run):
+- [ ] Copy text in another app: it appears in the Clipboard tab within about half a second
+- [ ] Copy an image (Snipping Tool, browser "Copy image"): thumbnail appears; click it and paste into Paint/Word: quality is unchanged
+- [ ] Copy a password from a password manager: it is not recorded
+- [ ] Pause, copy something, resume: the copy made while paused does not appear

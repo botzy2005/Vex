@@ -985,6 +985,163 @@ def main():
         check("developer page: the speed test runs chosen models direct-to-Ollama and through VEX and lists both", bench_flow)
         sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
 
+        # ---- clipboard history (simulated source; the real rules are Rust-tested) ----
+        collapse()
+        def clip_copy(**kw):
+            page.evaluate("c => window.__harness.clipboardCopyExternal(c)", kw); page.wait_for_timeout(260)
+        def open_clip_tab():
+            if isl.get_attribute("data-expanded") != "true":
+                isl.hover(); page.wait_for_timeout(700)
+            if isl.get_attribute("data-expanded") != "true":
+                page.evaluate("window.__harness.emitIslandToggle()"); page.wait_for_timeout(900)
+            page.locator('[data-testid="tab-clipboard"]').click(); page.wait_for_timeout(350)
+        def clip_texts():
+            return page.locator('[data-testid="clip-item"] .clip-preview').all_inner_texts()
+        def cstored():
+            return json.loads(sp.evaluate("localStorage.getItem('islet-test-settings')"))["clipboard"]
+        def to_clip_settings():
+            sp.locator('[data-testid="page-clipboard"]').click(); sp.wait_for_timeout(300)
+
+        def clip_off_by_default():
+            to_clip_settings()
+            assert sget("clip-enabled").get_attribute("aria-checked") == "false"
+            expect(sget("clip-privacy")).to_contain_text("never sent to an AI provider")
+            expect(sget("clip-settings-status")).to_contain_text("off")
+            clip_copy(kind="text", text="copied while off")
+            open_clip_tab()
+            expect(page.locator('[data-testid="clip-off"]')).to_be_visible()
+            expect(page.locator('[data-testid="clip-rec-dot"]')).to_have_count(0)
+        check("clipboard: off by default, nothing recorded while off, privacy statement shown", clip_off_by_default)
+
+        def clip_enable_shows_recording():
+            sget("clip-enabled").click(); sp.wait_for_timeout(500)
+            expect(sget("clip-settings-status")).to_contain_text("Recording")
+            expect(page.locator('[data-testid="clip-rec-dot"]')).to_be_visible()
+            st = page.locator('[data-testid="clip-status"]')
+            expect(st).to_have_attribute("data-tone", "recording")
+            expect(st).to_contain_text("Recording copies")
+            clip_texts_before = clip_texts()
+            assert clip_texts_before == [], clip_texts_before  # what was copied while off was never kept
+        check("clipboard: enabling makes the recording state obvious (tab dot, status line) and keeps nothing from before", clip_enable_shows_recording)
+
+        def clip_records_text_and_image_without_consecutive_duplicates():
+            clip_copy(kind="text", text="first note")
+            clip_copy(kind="text", text="first note")
+            clip_copy(kind="text", text="second\nnote with two lines")
+            clip_copy(kind="image", seed=3)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(3)
+            assert clip_texts() == ["second\nnote with two lines", "first note"], clip_texts()
+            kinds = page.locator('[data-testid="clip-item"]').evaluate_all("els => els.map(e => e.dataset.kind)")
+            assert kinds[0] == "image", kinds
+            expect(page.locator('[data-testid="clip-thumb"], .clip-thumb')).to_have_count(1)
+            assert "1280×720" in page.inner_text('[data-testid="clipboard-panel"]')
+        check("clipboard: text and images are listed newest first, an immediate repeat is stored once, images show a thumbnail", clip_records_text_and_image_without_consecutive_duplicates)
+
+        def clip_search_and_copy_back():
+            page.locator('[data-testid="clip-search"]').fill("FIRST"); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(1)
+            page.locator('[data-testid="clip-copy"]').click(); page.wait_for_timeout(400)
+            w = page.evaluate("window.__harness.clipboardWrites")
+            assert w[-1]["kind"] == "text" and w[-1]["text"] == "first note", w
+            expect(page.locator('[data-testid="clip-item"]').first).to_contain_text("Copied")
+            page.locator('[data-testid="clip-search"]').fill("zzz"); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="clip-empty"]')).to_contain_text("No copied text matches")
+            page.locator('[data-testid="clip-search"]').fill(""); page.wait_for_timeout(300)
+        check("clipboard: search filters text, clicking an entry puts it back on the clipboard", clip_search_and_copy_back)
+
+        def clip_copy_failure_is_reported():
+            page.evaluate("window.__harness.failNextClipboardCopy('The clipboard is in use by another program. Try again.')")
+            page.locator('[data-testid="clip-copy"]').first.click(); page.wait_for_timeout(400)
+            expect(page.locator('[data-testid="clip-note"]')).to_contain_text("in use by another program")
+        check("clipboard: a failed copy-back tells the user why", clip_copy_failure_is_reported)
+
+        def clip_pin_delete_clear():
+            items = page.locator('[data-testid="clip-item"]')
+            last = items.nth(items.count() - 1)
+            last.locator('[data-testid="clip-pin"]').click(); page.wait_for_timeout(300)
+            assert page.locator('[data-testid="clip-item"]').first.get_attribute("data-pinned") == "true"
+            page.locator('[data-testid="clip-clear"]').click(); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(1)  # only the pinned entry survives Clear
+            page.locator('[data-testid="clip-delete"]').click(); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(0)
+            expect(page.locator('[data-testid="clip-clear"]')).to_be_disabled()
+        check("clipboard: pin lifts an entry, Clear keeps pinned ones, delete removes one", clip_pin_delete_clear)
+
+        def clip_pause_and_resume():
+            to_clip_settings()
+            sget("clip-paused").click(); sp.wait_for_timeout(400)
+            expect(sget("clip-settings-status")).to_contain_text("Paused")
+            expect(page.locator('[data-testid="clip-rec-dot"]')).to_have_count(0)
+            expect(page.locator('[data-testid="clip-status"]')).to_have_attribute("data-tone", "paused")
+            clip_copy(kind="text", text="while paused")
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(0)
+            sget("clip-paused").click(); sp.wait_for_timeout(400)
+            clip_copy(kind="text", text="after resume")
+            assert clip_texts() == ["after resume"], clip_texts()
+        check("clipboard: pausing stops recording (and says so), resuming records again", clip_pause_and_resume)
+
+        def clip_sensitive_and_images_off():
+            clip_copy(kind="text", text="gh" + "p_abcdefghijklmnopqrstuvwxyz0123456789")
+            expect(page.locator('[data-testid="clip-note"]')).to_contain_text("not saved")
+            assert clip_texts() == ["after resume"], clip_texts()
+            clip_copy(kind="image", seed=9, sensitive=True)
+            assert page.locator('[data-testid="clip-item"][data-kind="image"]').count() == 0
+            clip_copy(kind="image", seed=4)
+            expect(page.locator('[data-testid="clip-item"][data-kind="image"]')).to_have_count(1)
+            sget("clip-images").click(); sp.wait_for_timeout(400)
+            expect(page.locator('[data-testid="clip-item"][data-kind="image"]')).to_have_count(0)
+            clip_copy(kind="image", seed=5)
+            expect(page.locator('[data-testid="clip-item"][data-kind="image"]')).to_have_count(0)
+            sget("clip-images").click(); sp.wait_for_timeout(300)
+        check("clipboard: private-looking copies are skipped with a notice; turning images off removes and ignores them", clip_sensitive_and_images_off)
+
+        def clip_limit_keeps_pinned():
+            sget("clip-max").select_option("10"); sp.wait_for_timeout(300)
+            assert cstored()["maxItems"] == 10
+            first = page.locator('[data-testid="clip-item"]').last
+            first.locator('[data-testid="clip-pin"]').click(); page.wait_for_timeout(300)
+            for i in range(14):
+                clip_copy(kind="text", text=f"entry {i}")
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(10)
+            assert page.locator('[data-testid="clip-item"][data-pinned="true"]').count() == 1
+            assert clip_texts()[1] == "entry 13", clip_texts()  # newest unpinned follows the pinned one
+        check("clipboard: the history is capped at the chosen size and pinned entries are never trimmed", clip_limit_keeps_pinned)
+
+        def clip_persist_setting_and_clear_all():
+            sget("clip-persist").click(); sp.wait_for_timeout(300)
+            assert cstored()["persist"] is True
+            expect(sget("clip-settings-status")).to_be_visible()
+            sget("clip-persist").click(); sp.wait_for_timeout(300)
+            assert cstored()["persist"] is False
+            sget("clip-clear-all").click(); sp.wait_for_timeout(400)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(0)
+            expect(sget("clip-clear-all")).to_be_disabled()
+        check("clipboard: persistence is a setting (off by default) and Clear all removes everything including pinned", clip_persist_setting_and_clear_all)
+
+        def clip_disable_forgets_and_stops():
+            clip_copy(kind="text", text="will be forgotten")
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(1)
+            sget("clip-enabled").click(); sp.wait_for_timeout(500)
+            expect(page.locator('[data-testid="clip-off"]')).to_be_visible()
+            clip_copy(kind="text", text="after disabling")
+            sget("clip-enabled").click(); sp.wait_for_timeout(500)
+            expect(page.locator('[data-testid="clip-item"]')).to_have_count(0)  # nothing came back
+        check("clipboard: disabling stops recording and forgets the history", clip_disable_forgets_and_stops)
+
+        def clip_never_in_ai_requests():
+            sget("clip-enabled").click(); sp.wait_for_timeout(500)
+            clip_copy(kind="text", text="SECRET-CLIPBOARD-TEXT")
+            sends_before = len(page.evaluate("window.__harness.aiSends"))
+            page.locator('[data-testid="tab-assistant"]').click(); page.wait_for_timeout(300)
+            say("What did I just copy to the clipboard?"); page.wait_for_timeout(1500)
+            sends = page.evaluate("window.__harness.aiSends")
+            payload = json.dumps(sends[sends_before:])
+            assert len(sends) > sends_before and "SECRET-CLIPBOARD-TEXT" not in payload, payload
+            sget("clip-enabled").click(); sp.wait_for_timeout(400)
+        check("clipboard: copied text is never part of an assistant request, even when asked about", clip_never_in_ai_requests)
+
+        sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
+
         def reset_section():
             sp.locator('[data-testid="face-state-idle"]').click()
             sp.locator('[data-testid="page-appearance"]').click(); sp.locator('[data-testid="reset-appearance"]').click(); page.wait_for_timeout(500)

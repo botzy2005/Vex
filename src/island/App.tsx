@@ -12,7 +12,9 @@ import { LyricsView } from '../lyrics/LyricsView';
 import { useLyrics } from '../lyrics/useLyrics';
 import { NotificationPreview, NotificationsPanel } from '../notifications/NotificationsPanel';
 import { useNotifications } from '../notifications/useNotifications';
-import { BellIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
+import { ClipboardPanel } from '../clipboard/ClipboardPanel';
+import { useClipboard } from '../clipboard/useClipboard';
+import { BellIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { Artwork, MusicPanel } from './MusicPanel';
@@ -23,6 +25,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof MusicIcon }> = [
   { id: 'lyrics', label: 'Lyrics', icon: LyricsIcon },
   { id: 'assistant', label: 'Assistant', icon: SparkIcon },
   { id: 'notifications', label: 'Notifications', icon: BellIcon },
+  { id: 'clipboard', label: 'Clipboard', icon: ClipboardIcon },
 ];
 
 const ASSISTANT_LABEL = { idle: '', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', error: 'Error' } as const;
@@ -35,6 +38,7 @@ export function IslandApp() {
   const chat = useChat(backend, assistant);
   const session = media.session;
   const notif = useNotifications(true);
+  const clip = useClipboard(false);
 
   const [tab, setTab] = useState<Tab>('music');
   const [inputFocused, setInputFocused] = useState(false);
@@ -191,6 +195,7 @@ export function IslandApp() {
                       onClick={() => setTab(id)}
                     >
                       <Icon width={16} height={16} />
+                      {id === 'clipboard' && clip.status.recording && <span className="tab-rec" data-testid="clip-rec-dot" title="Clipboard history is recording" />}
                       {id === 'notifications' && settings.notifications.enabled && notif.view.unread > 0 && (
                         <span className="tab-badge" data-testid="notif-badge">{notif.view.unread > 9 ? '9+' : notif.view.unread}</span>
                       )}
@@ -225,6 +230,7 @@ export function IslandApp() {
                     <LyricsView lyrics={lyrics} session={session} activeIndex={activeIndex} getPos={getPos} music={music} onSeek={seek} />
                   </div>
                 )}
+                {tab === 'clipboard' && <ClipboardPanel enabled={settings.clipboard.enabled} onOpenSettings={() => void backend.openSettings()} />}
                 {tab === 'notifications' && <NotificationsPanel view={notif.view} settings={settings.notifications} onOpenSettings={() => void backend.openSettings()} />}
                 {tab === 'assistant' && (
                   <AssistantPanel

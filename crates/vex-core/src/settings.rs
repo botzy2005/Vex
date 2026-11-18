@@ -171,6 +171,31 @@ pub struct Notifications {
 
 pub const DEFAULT_NOTIFICATION_HISTORY: u32 = 100;
 
+/// Local clipboard history. Off until the user turns it on; everything stays on this PC and nothing
+/// is ever sent to an AI provider.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Clipboard {
+    pub enabled: bool,
+    /// Keep the history but stop recording new copies.
+    pub paused: bool,
+    /// How many entries the history keeps (10..=200).
+    pub max_items: u32,
+    pub images: bool,
+    /// Keep the history on disk across restarts. Off: it lives in memory only.
+    pub persist: bool,
+    /// Do not record things that look like passwords, API keys, card numbers or private keys.
+    pub skip_sensitive: bool,
+}
+
+pub const DEFAULT_CLIPBOARD_ITEMS: u32 = 50;
+
+impl Default for Clipboard {
+    fn default() -> Self {
+        Self { enabled: false, paused: false, max_items: DEFAULT_CLIPBOARD_ITEMS, images: true, persist: false, skip_sensitive: true }
+    }
+}
+
 impl Default for Notifications {
     fn default() -> Self {
         Self { enabled: false, show_previews: true, grouping: true, history_limit: DEFAULT_NOTIFICATION_HISTORY, blocked_apps: Vec::new() }
@@ -261,6 +286,7 @@ pub struct Settings {
     pub music: Music,
     pub ai: Ai,
     pub notifications: Notifications,
+    pub clipboard: Clipboard,
 }
 
 impl Default for Appearance {
@@ -335,6 +361,7 @@ impl Default for Settings {
             music: Music::default(),
             ai: Ai::default(),
             notifications: Notifications::default(),
+            clipboard: Clipboard::default(),
         }
     }
 }
@@ -416,6 +443,8 @@ impl Settings {
             ai.ollama_keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE.into();
         }
         ai.ollama_num_ctx = ai.ollama_num_ctx.clamp(1024, 32768);
+
+        self.clipboard.max_items = self.clipboard.max_items.clamp(10, 200);
 
         let n = &mut self.notifications;
         n.history_limit = n.history_limit.clamp(10, 500);

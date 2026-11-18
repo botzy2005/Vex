@@ -7,6 +7,9 @@
 //! can handle their absence honestly; they arrive in later milestones.
 
 mod ai;
+mod clipboard;
+#[cfg(windows)]
+mod clipboard_windows;
 mod lyrics;
 mod media;
 mod notifications;
@@ -133,10 +136,10 @@ fn update_settings(
     state: State<AppState>,
     patch: Value,
 ) -> Result<UpdateResult, String> {
-    let (next, old_hotkey, old_notifications) = {
+    let (next, old_hotkey, old_notifications, old_clipboard) = {
         let current = state.settings.lock().unwrap();
         let next = current.with_patch(&patch).map_err(|e| e.to_string())?;
-        (next, current.island.hotkey.clone(), current.notifications.clone())
+        (next, current.island.hotkey.clone(), current.notifications.clone(), current.clipboard.clone())
     };
 
     let mut warnings = Vec::new();
@@ -147,6 +150,9 @@ fn update_settings(
 
     if next.notifications != old_notifications {
         app.state::<notifications::NotificationHandle>().configure(next.notifications.clone());
+    }
+    if next.clipboard != old_clipboard {
+        app.state::<clipboard::ClipboardHandle>().configure(next.clipboard.clone());
     }
     if next.island.hotkey != old_hotkey {
         if let Some(w) = register_hotkey(&app, &next.island.hotkey) {
@@ -233,6 +239,41 @@ async fn media_transport(
     command: TransportCommand,
 ) -> Result<(), String> {
     media.send(command)
+}
+
+// Clipboard -------------------------------------------------------------------
+
+#[tauri::command]
+fn clipboard_status(handle: State<clipboard::ClipboardHandle>) -> vex_core::clipboard::Status {
+    handle.status()
+}
+
+/// The history, pinned first. `query` filters text entries (case-insensitive).
+#[tauri::command]
+fn clipboard_list(handle: State<clipboard::ClipboardHandle>, query: Option<String>) -> Vec<vex_core::clipboard::ItemView> {
+    handle.list(query.as_deref().unwrap_or(""))
+}
+
+// `async` so waiting for the clipboard never blocks the UI thread.
+#[tauri::command]
+async fn clipboard_copy(handle: State<'_, clipboard::ClipboardHandle>, id: u64) -> Result<(), String> {
+    handle.copy(id)
+}
+
+#[tauri::command]
+async fn clipboard_pin(handle: State<'_, clipboard::ClipboardHandle>, id: u64, pinned: bool) -> Result<(), String> {
+    handle.pin(id, pinned)
+}
+
+#[tauri::command]
+fn clipboard_delete(handle: State<clipboard::ClipboardHandle>, id: u64) {
+    handle.delete(id);
+}
+
+/// Remove entries from the history; pinned ones stay unless `keep_pinned` is false.
+#[tauri::command]
+fn clipboard_clear(handle: State<clipboard::ClipboardHandle>, keep_pinned: bool) {
+    handle.clear(keep_pinned);
 }
 
 // Notifications ---------------------------------------------------------------
@@ -334,6 +375,7 @@ pub fn run() {
             }
             let hotkey = loaded.settings.island.hotkey.clone();
             let notif_cfg = loaded.settings.notifications.clone();
+            let clip_cfg = loaded.settings.clipboard.clone();
             app.manage(AppState {
                 settings: Mutex::new(loaded.settings),
                 store,
@@ -343,6 +385,7 @@ pub fn run() {
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
             app.manage(notifications::start(app.handle().clone(), notif_cfg));
+            app.manage(clipboard::start(app.handle().clone(), clip_cfg, dir.join("clipboard")));
 
             let chats = vex_core::chat::ChatStore::load(dir.join("chats.json"));
             if chats.recovered_from_corrupt {
@@ -416,6 +459,12 @@ pub fn run() {
             notification_clear,
             notification_clear_all,
             notification_open,
+            clipboard_status,
+            clipboard_list,
+            clipboard_copy,
+            clipboard_pin,
+            clipboard_delete,
+            clipboard_clear,
             ai::ai_send,
             ai::ai_cancel,
             ai::ai_metrics,

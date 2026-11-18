@@ -13,6 +13,8 @@ import type {
   MediaState,
   MonitorInfo,
   NotificationsView,
+  ClipboardItem,
+  ClipboardStatus,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -97,6 +99,21 @@ export interface Backend {
   notificationClearAll(): Promise<void>;
   /** Open the app that posted it. Rejects with a readable reason when Windows cannot. */
   notificationOpen(id: number): Promise<void>;
+
+  /**
+   * Local clipboard history (never sent anywhere, never given to the assistant). The change event
+   * carries only the status; ask for the list when it is shown.
+   */
+  clipboardStatus(): Promise<ClipboardStatus>;
+  onClipboard(cb: (s: ClipboardStatus) => void): Promise<Unsub>;
+  /** Pinned first, then newest first. A query filters text entries. */
+  clipboardList(query: string): Promise<ClipboardItem[]>;
+  /** Put an entry back on the clipboard. Rejects with a readable reason. */
+  clipboardCopy(id: number): Promise<void>;
+  clipboardPin(id: number, pinned: boolean): Promise<void>;
+  clipboardDelete(id: number): Promise<void>;
+  /** Remove entries; `keepPinned` leaves the pinned ones. */
+  clipboardClear(keepPinned: boolean): Promise<void>;
 
   /** Show an assistant state on the island (used by Settings to preview the face). */
   assistantPreview(state: AssistantState): Promise<void>;

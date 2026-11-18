@@ -42,6 +42,13 @@ export function createTauriBackend(): Backend {
     notificationClear: (id) => invoke('notification_clear', { id }),
     notificationClearAll: () => invoke('notification_clear_all'),
     notificationOpen: (id) => invoke('notification_open', { id }),
+    clipboardStatus: () => invoke('clipboard_status'),
+    onClipboard: (cb) => sub('clipboard-changed', cb),
+    clipboardList: (query) => invoke('clipboard_list', { query }),
+    clipboardCopy: (id) => invoke('clipboard_copy', { id }),
+    clipboardPin: (id, pinned) => invoke('clipboard_pin', { id, pinned }),
+    clipboardDelete: (id) => invoke('clipboard_delete', { id }),
+    clipboardClear: (keepPinned) => invoke('clipboard_clear', { keepPinned }),
     assistantPreview: (state) => invoke('assistant_preview_state', { state }),
     onAssistantState: (cb) => sub('assistant-state', cb),
   };

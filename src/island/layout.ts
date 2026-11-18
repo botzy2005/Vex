@@ -1,6 +1,6 @@
 import type { AssistantState, Shape } from '../shared/types';
 
-export type Tab = 'music' | 'lyrics' | 'assistant' | 'notifications';
+export type Tab = 'music' | 'lyrics' | 'assistant' | 'notifications' | 'clipboard';
 export type CompactView = 'idle' | 'media' | 'lyrics' | 'assistant' | 'notification';
 export type View = CompactView | 'expanded';
 
@@ -40,6 +40,7 @@ const EXPANDED_SIZE: Record<Tab, { w: number; h: number }> = {
   lyrics: { w: 540, h: 262 },
   assistant: { w: 540, h: 340 },
   notifications: { w: 540, h: 320 },
+  clipboard: { w: 540, h: 320 },
 };
 
 export interface LayoutInput {

@@ -78,3 +78,6 @@ input[type='password']:focus { outline: 2px solid var(--accent); outline-offset:
 .status-line[data-state='unavailable'], .status-line[data-state='denied'] { border: 1px solid rgba(255, 170, 60, .5); }
 .n-icon { border-radius: 5px; object-fit: contain; flex: none; }
 .n-letter { display: inline-grid; place-items: center; background: var(--chip); font-weight: 700; }
+
+.status-line[data-state='recording'] { border-left: 3px solid #e5534b; }
+.status-line[data-state='paused'] { border-left: 3px solid #d9a43b; }

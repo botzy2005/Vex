@@ -1,3 +1,4 @@
+import { describeItem, formatBytes, sensitiveNote, statusLine } from '../src/clipboard/format';
 import { describe, expect, it } from 'vitest';
 import { parseLrc } from '../src/lyrics/lrc';
 import { currentPositionMs, findActiveIndex, lineEndMs, wordFractions } from '../src/lyrics/sync';
@@ -481,5 +482,36 @@ describe('notification layout', () => {
     expect(l.view).toBe('notification');
     expect(l.width).toBeGreaterThan(300);
     expect(computeLayout({ expanded: true, tab: 'notifications', compact: 'idle', sizeScale: 1, shape: 'pill', cornerRadius: 26 }).view).toBe('expanded');
+  });
+});
+
+describe('clipboard helpers', () => {
+  const text = { id: 1, tsMs: 0, pinned: false, kind: 'text' as const, preview: 'a', chars: 1, lines: 1, width: 0, height: 0, bytes: 0, thumb: null };
+  it('formats sizes', () => {
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(2048)).toBe('2 KB');
+    expect(formatBytes(3 * 1024 * 1024)).toBe('3.0 MB');
+  });
+  it('describes text and images', () => {
+    expect(describeItem(text)).toBe('1 character');
+    expect(describeItem({ ...text, chars: 1234, lines: 3 })).toBe('3 lines · 1,234 characters');
+    expect(describeItem({ ...text, kind: 'image', width: 800, height: 600, bytes: 40960 })).toBe('Image · 800×600 · 40 KB');
+  });
+  const st = { enabled: true, paused: false, recording: true, count: 4, pinned: 1, imageBytes: 0, skippedSensitive: 0, note: null, persist: false };
+  it('always says whether the history is listening', () => {
+    expect(statusLine({ ...st, enabled: false, recording: false })).toEqual({ tone: 'off', text: 'Clipboard history is off' });
+    expect(statusLine({ ...st, paused: true, recording: false }).tone).toBe('paused');
+    expect(statusLine(st)).toEqual({ tone: 'recording', text: 'Recording copies · 4 saved' });
+  });
+  it('words the private-copy notice', () => {
+    expect(sensitiveNote(0)).toBeNull();
+    expect(sensitiveNote(1)).toContain('1 copy');
+    expect(sensitiveNote(3)).toContain('3 copies');
+    expect(sensitiveNote(3)).toContain('were not saved');
+  });
+  it('has a clipboard tab size', () => {
+    const l = computeLayout({ expanded: true, tab: 'clipboard', compact: 'idle', sizeScale: 1, shape: 'pill', cornerRadius: 26 });
+    expect(l.view).toBe('expanded');
+    expect(l.baseHeight).toBeGreaterThan(200);
   });
 });

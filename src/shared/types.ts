@@ -62,6 +62,17 @@ export interface Settings {
     /** Application ids whose notifications are ignored. */
     blockedApps: string[];
   };
+  clipboard: {
+    enabled: boolean;
+    /** Keep the history but stop recording new copies. */
+    paused: boolean;
+    maxItems: number;
+    images: boolean;
+    /** Keep the history on disk across restarts (not encrypted). */
+    persist: boolean;
+    /** Skip things that look like passwords, API keys, card numbers or private keys. */
+    skipSensitive: boolean;
+  };
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
@@ -316,4 +327,34 @@ export interface NotificationsView {
   entries: NotificationEntry[];
   apps: NotificationApp[];
   unread: number;
+}
+
+export interface ClipboardItem {
+  id: number;
+  tsMs: number;
+  pinned: boolean;
+  kind: 'text' | 'image';
+  /** A short readable preview (text only; empty for images). */
+  preview: string;
+  chars: number;
+  lines: number;
+  width: number;
+  height: number;
+  bytes: number;
+  /** `data:image/png;base64,…` thumbnail (images only). */
+  thumb: string | null;
+}
+
+export interface ClipboardStatus {
+  enabled: boolean;
+  paused: boolean;
+  /** True only while copies are actually being recorded. */
+  recording: boolean;
+  count: number;
+  pinned: number;
+  imageBytes: number;
+  skippedSensitive: number;
+  /** The latest thing worth telling the user. */
+  note: string | null;
+  persist: boolean;
 }

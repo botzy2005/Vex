@@ -49,5 +49,13 @@
     "grouping": true,
     "historyLimit": 100,
     "blockedApps": []
+  },
+  "clipboard": {
+    "enabled": false,
+    "paused": false,
+    "maxItems": 50,
+    "images": true,
+    "persist": false,
+    "skipSensitive": true
   }
 }

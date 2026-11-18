@@ -63,6 +63,9 @@ export const TrashIcon = (p: SVGProps<SVGSVGElement>) => (
 export const BellIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5ZM10 20.5a2 2 0 0 0 4 0" /></svg>
 );
+export const ClipboardIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="5" width="12" height="16" rx="2" /><path d="M9 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9.5 11h5M9.5 15h5" /></svg>
+);
 export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
 );
