@@ -22,6 +22,8 @@ import type {
   LyricsQuery,
   MediaSession,
   MediaState,
+  NotificationAccess,
+  NotificationsView,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -69,6 +71,11 @@ export interface Harness {
   /** Forget everything in memory, as if the app restarted (history stays in storage). */
   restartAi(): void;
   readonly settingsOpened: number;
+  /** Simulate Windows delivering a notification (kept only when the module is on and the app is not blocked). */
+  notify(n: { appId: string; appName?: string; title?: string; body?: string; icon?: string | null; tsMs?: number }): void;
+  /** Force what the simulated Windows says about permission (null = allowed while the module is on). */
+  setNotificationAccess(a: NotificationAccess | null): void;
+  readonly notificationOpens: number[];
 }
 
 declare global {
@@ -126,6 +133,49 @@ export function createTestBackend(): Backend {
   let opened = 0;
   let lyricsReply: LyricsFetchResult | null | { error: string } = null;
   const lyricsCalls: LyricsQuery[] = [];
+
+  // ---- simulated Windows notifications (stand-in for the native listener; the real rules live in Rust)
+  const notifChannel = new BroadcastChannel('vex-test-notifications');
+  const notifSubs = new Set<(v: NotificationsView) => void>();
+  let nview: NotificationsView = { access: { state: 'idle' }, entries: [], apps: [], unread: 0 };
+  let nextNid = 1;
+  let accessOverride: NotificationAccess | null = null;
+  const notificationOpens: number[] = [];
+  const publishN = (broadcast = true) => {
+    const n = settings.notifications;
+    const access: NotificationAccess = n.enabled ? accessOverride ?? { state: 'allowed' } : { state: 'idle' };
+    const entries = nview.entries;
+    nview = {
+      access,
+      entries,
+      apps: nview.apps.map((a) => ({ ...a, blocked: n.blockedApps.includes(a.id) })),
+      unread: entries.filter((e) => e.unread).length,
+    };
+    notifSubs.forEach((cb) => cb(nview));
+    if (broadcast) notifChannel.postMessage({ type: 'view', view: nview });
+  };
+  /** The same rules the Rust centre applies when settings change. */
+  const reconfigureN = () => {
+    const n = settings.notifications;
+    let { entries, apps } = nview;
+    if (!n.enabled) {
+      entries = [];
+      apps = [];
+    }
+    entries = entries.filter((e) => !n.blockedApps.includes(e.appId));
+    if (!n.showPreviews) entries = entries.map((e) => ({ ...e, title: '', body: '' }));
+    entries = entries.slice(0, n.historyLimit);
+    nview = { ...nview, entries, apps };
+    publishN();
+  };
+  notifChannel.onmessage = (e) => {
+    const d = e.data as { type: string; view?: NotificationsView };
+    if (d.type === 'view' && d.view) {
+      nview = d.view;
+      notifSubs.forEach((cb) => cb(nview));
+    } else if (d.type === 'hello' && (nview.entries.length || nview.apps.length)) notifChannel.postMessage({ type: 'view', view: nview });
+  };
+  notifChannel.postMessage({ type: 'hello' });
 
   const sub = <T,>(set: Set<(v: T) => void>, cb: (v: T) => void): Promise<Unsub> => {
     set.add(cb);
@@ -200,6 +250,29 @@ export function createTestBackend(): Backend {
     get settingsOpened() {
       return opened;
     },
+    notify(n) {
+      const cfg = settings.notifications;
+      if (!cfg.enabled || cfg.blockedApps.includes(n.appId)) return;
+      const entry = {
+        id: nextNid++,
+        appId: n.appId,
+        appName: n.appName ?? n.appId,
+        title: cfg.showPreviews ? n.title ?? '' : '',
+        body: cfg.showPreviews ? n.body ?? '' : '',
+        tsMs: n.tsMs ?? Date.now(),
+        unread: true,
+      };
+      const apps = nview.apps.some((a) => a.id === n.appId)
+        ? nview.apps.map((a) => (a.id === n.appId ? { ...a, name: entry.appName, icon: n.icon ?? a.icon } : a))
+        : [...nview.apps, { id: n.appId, name: entry.appName, icon: n.icon ?? null, blocked: false }];
+      nview = { ...nview, apps, entries: [entry, ...nview.entries].slice(0, cfg.historyLimit) };
+      publishN();
+    },
+    setNotificationAccess(a) {
+      accessOverride = a;
+      publishN();
+    },
+    notificationOpens,
   };
   window.__harness = harness;
 
@@ -212,6 +285,7 @@ export function createTestBackend(): Backend {
       /* ignore */
     }
     settingsSubs.forEach((cb) => cb(settings));
+    reconfigureN();
     return { settings, warnings: [] as string[] };
   }
   harness.patchSettings = async (p) => void (await applyPatch(p));
@@ -369,6 +443,31 @@ export function createTestBackend(): Backend {
     chatGet: async (id) => loadChats().find((c) => c.id === id) ?? null,
     chatDelete: async (id) => saveChats(loadChats().filter((c) => c.id !== id)),
     chatClearAll: async () => saveChats([]),
+
+    getNotifications: async () => nview,
+    onNotifications: (cb) => sub(notifSubs, cb),
+    async notificationDismiss(id) {
+      nview = { ...nview, entries: nview.entries.map((e) => (e.id === id ? { ...e, unread: false } : e)) };
+      publishN();
+    },
+    async notificationDismissAll() {
+      nview = { ...nview, entries: nview.entries.map((e) => ({ ...e, unread: false })) };
+      publishN();
+    },
+    async notificationClear(id) {
+      nview = { ...nview, entries: nview.entries.filter((e) => e.id !== id) };
+      publishN();
+    },
+    async notificationClearAll() {
+      nview = { ...nview, entries: [] };
+      publishN();
+    },
+    async notificationOpen(id) {
+      if (!nview.entries.some((e) => e.id === id)) throw new Error('That notification is no longer in the history.');
+      notificationOpens.push(id);
+      nview = { ...nview, entries: nview.entries.map((e) => (e.id === id ? { ...e, unread: false } : e)) };
+      publishN();
+    },
 
     // Tauri events reach every window; BroadcastChannel stands in for that across test pages.
     assistantPreview: async (s) => {

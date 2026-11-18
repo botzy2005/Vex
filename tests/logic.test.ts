@@ -388,3 +388,98 @@ describe('music context detection (what the person asks decides what is shared)'
     expect(buildContext({ song: false, lyrics: false }, { session: null, lyrics: null, activeIndex: -1, positionMs: 0 })).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------- notifications
+import { accessMessage, groupEntries, nextPreview, relativeTime } from '../src/notifications/group';
+import type { NotificationApp, NotificationEntry } from '../src/shared/types';
+
+const ne = (id: number, appId: string, tsMs: number, unread = true, title = `t${id}`): NotificationEntry => ({ id, appId, appName: appId.toUpperCase(), title, body: '', tsMs, unread });
+const napps: NotificationApp[] = [{ id: 'a', name: 'A', icon: 'data:image/png;base64,AA', blocked: false }, { id: 'b', name: 'B', icon: null, blocked: false }];
+
+describe('notification grouping', () => {
+  const entries = [ne(1, 'a', 100), ne(2, 'b', 300), ne(3, 'a', 200, false), ne(4, 'b', 50)];
+
+  it('groups by app, newest group first and newest item first', () => {
+    const g = groupEntries(entries, true, napps);
+    expect(g.map((x) => x.appId)).toEqual(['b', 'a']);
+    expect(g[0].items.map((e) => e.id)).toEqual([2, 4]);
+    expect(g[1].items.map((e) => e.id)).toEqual([3, 1]);
+    expect(g[1].unread).toBe(1);
+    expect(g[1].latestMs).toBe(200);
+    expect(g[1].icon).toBe('data:image/png;base64,AA');
+    expect(g[0].icon).toBeNull();
+  });
+
+  it('with grouping off every notification stands alone in time order', () => {
+    const g = groupEntries(entries, false, napps);
+    expect(g.map((x) => x.items[0].id)).toEqual([2, 3, 1, 4]);
+    expect(g.every((x) => x.items.length === 1)).toBe(true);
+  });
+
+  it('copes with nothing and with apps missing from the app list', () => {
+    expect(groupEntries([], true, [])).toEqual([]);
+    expect(groupEntries([ne(1, 'zz', 5)], true, [])[0].icon).toBeNull();
+  });
+
+  it('does not mutate its input', () => {
+    const copy = structuredClone(entries);
+    groupEntries(entries, true, napps);
+    expect(entries).toEqual(copy);
+  });
+});
+
+describe('notification preview rule', () => {
+  it('the first view is only a baseline, never a preview', () => {
+    const s = nextPreview(null, [ne(5, 'a', 1)]);
+    expect(s).toEqual({ maxId: 5, preview: null });
+  });
+  it('previews the newest new unread entry', () => {
+    const base = nextPreview(null, [ne(1, 'a', 1)]);
+    const s = nextPreview(base, [ne(3, 'b', 3), ne(2, 'a', 2), ne(1, 'a', 1)]);
+    expect(s.preview?.id).toBe(3);
+    expect(s.maxId).toBe(3);
+  });
+  it('does not preview again for views with nothing new, or for entries already read', () => {
+    const base = { maxId: 3, preview: null };
+    expect(nextPreview(base, [ne(3, 'a', 3)]).preview).toBeNull();
+    expect(nextPreview(base, [ne(4, 'a', 4, false)]).preview).toBeNull();
+  });
+  it('clearing history does not lower the baseline (ids never come back)', () => {
+    const s = nextPreview({ maxId: 9, preview: null }, []);
+    expect(s.maxId).toBe(9);
+  });
+});
+
+describe('notification text helpers', () => {
+  it('formats relative time', () => {
+    const now = 10_000_000;
+    expect(relativeTime(now - 10_000, now)).toBe('now');
+    expect(relativeTime(now + 5000, now)).toBe('now');
+    expect(relativeTime(now - 5 * 60_000, now)).toBe('5 min ago');
+    expect(relativeTime(now - 3 * 3_600_000, now)).toBe('3 h ago');
+    expect(relativeTime(now - 2 * 86_400_000, now)).toBe('2 d ago');
+  });
+  it('explains every state in plain words', () => {
+    expect(accessMessage({ state: 'allowed' }, true)).toBeNull();
+    expect(accessMessage({ state: 'allowed' }, false)).toMatch(/off/i);
+    expect(accessMessage({ state: 'denied' }, true)).toMatch(/Privacy/);
+    expect(accessMessage({ state: 'unavailable', reason: 'No identity.' }, true)).toBe('No identity.');
+    expect(accessMessage({ state: 'idle' }, true)).toMatch(/Waiting/);
+  });
+});
+
+describe('notification layout', () => {
+  const base = { assistant: 'idle' as const, hasSession: true, lyricsLineVisible: true };
+  it('a notification preview beats lyrics and media but not an active assistant', () => {
+    expect(resolveCompactView({ ...base, notification: true })).toBe('notification');
+    expect(resolveCompactView({ ...base, assistant: 'thinking', notification: true })).toBe('assistant');
+    expect(resolveCompactView({ ...base, hasSession: false, lyricsLineVisible: false, notification: true })).toBe('notification');
+    expect(resolveCompactView({ ...base, notification: false })).toBe('lyrics');
+  });
+  it('has sizes for the preview and the panel', () => {
+    const l = computeLayout({ expanded: false, tab: 'music', compact: 'notification', sizeScale: 1, shape: 'pill', cornerRadius: 26 });
+    expect(l.view).toBe('notification');
+    expect(l.width).toBeGreaterThan(300);
+    expect(computeLayout({ expanded: true, tab: 'notifications', compact: 'idle', sizeScale: 1, shape: 'pill', cornerRadius: 26 }).view).toBe('expanded');
+  });
+});

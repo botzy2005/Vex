@@ -10,7 +10,9 @@ import { lineEndMs } from '../lyrics/sync';
 import { LyricPeek } from '../lyrics/LyricPeek';
 import { LyricsView } from '../lyrics/LyricsView';
 import { useLyrics } from '../lyrics/useLyrics';
-import { GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
+import { NotificationPreview, NotificationsPanel } from '../notifications/NotificationsPanel';
+import { useNotifications } from '../notifications/useNotifications';
+import { BellIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { Artwork, MusicPanel } from './MusicPanel';
@@ -20,6 +22,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof MusicIcon }> = [
   { id: 'music', label: 'Music', icon: MusicIcon },
   { id: 'lyrics', label: 'Lyrics', icon: LyricsIcon },
   { id: 'assistant', label: 'Assistant', icon: SparkIcon },
+  { id: 'notifications', label: 'Notifications', icon: BellIcon },
 ];
 
 const ASSISTANT_LABEL = { idle: '', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', error: 'Error' } as const;
@@ -31,6 +34,7 @@ export function IslandApp() {
   const assistant = useAssistant();
   const chat = useChat(backend, assistant);
   const session = media.session;
+  const notif = useNotifications(true);
 
   const [tab, setTab] = useState<Tab>('music');
   const [inputFocused, setInputFocused] = useState(false);
@@ -47,6 +51,13 @@ export function IslandApp() {
 
   useSubscription<null>((cb) => backend.onIslandToggle(() => cb(null)), () => exp.toggleFromHotkey());
 
+  // Expanding while a notification preview is showing (by hover or hotkey) lands on the notification panel.
+  const previewShowing = !!notif.preview;
+  useEffect(() => {
+    if (exp.expanded && previewShowing) setTab('notifications');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exp.expanded]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && exp.expanded && exp.collapse();
     window.addEventListener('keydown', onKey);
@@ -58,6 +69,7 @@ export function IslandApp() {
     assistant: assistant.state,
     hasSession: !!session,
     lyricsLineVisible: !!music?.lyricsEnabled && !!music?.lyricsInCollapsed && lyrics.doc !== null && activeIndex >= 0,
+    notification: !!notif.preview && !!settings?.notifications.enabled,
   });
   const layout = computeLayout({
     expanded: exp.expanded,
@@ -95,7 +107,11 @@ export function IslandApp() {
         data-assistant={assistant.state}
         onPointerEnter={exp.onPointerEnter}
         onPointerLeave={exp.onPointerLeave}
-        onClick={() => !exp.expanded && exp.expand()}
+        onClick={() => {
+          if (exp.expanded) return;
+          if (layout.view === 'notification') setTab('notifications'); // a click on the preview opens the full panel
+          exp.expand();
+        }}
       >
         <div
           className="content"
@@ -146,6 +162,18 @@ export function IslandApp() {
             </div>
           )}
 
+          {layout.view === 'notification' && notif.preview && (
+            <NotificationPreview
+              key={`n${notif.preview.id}`}
+              entry={notif.preview}
+              icon={notif.view.apps.find((a) => a.id === notif.preview!.appId)?.icon ?? null}
+              onDismiss={() => {
+                void backend.notificationDismiss(notif.preview!.id);
+                notif.hidePreview();
+              }}
+            />
+          )}
+
           {layout.view === 'expanded' && (
             <div className="v expanded" key="expanded" data-testid="view-expanded">
               <header className="bar-top">
@@ -163,6 +191,9 @@ export function IslandApp() {
                       onClick={() => setTab(id)}
                     >
                       <Icon width={16} height={16} />
+                      {id === 'notifications' && settings.notifications.enabled && notif.view.unread > 0 && (
+                        <span className="tab-badge" data-testid="notif-badge">{notif.view.unread > 9 ? '9+' : notif.view.unread}</span>
+                      )}
                     </button>
                   ))}
                 </nav>
@@ -194,6 +225,7 @@ export function IslandApp() {
                     <LyricsView lyrics={lyrics} session={session} activeIndex={activeIndex} getPos={getPos} music={music} onSeek={seek} />
                   </div>
                 )}
+                {tab === 'notifications' && <NotificationsPanel view={notif.view} settings={settings.notifications} onOpenSettings={() => void backend.openSettings()} />}
                 {tab === 'assistant' && (
                   <AssistantPanel
                     assistant={assistant}

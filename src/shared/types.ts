@@ -54,6 +54,14 @@ export interface Settings {
     ollamaKeepAlive: string;
     ollamaNumCtx: number;
   };
+  notifications: {
+    enabled: boolean;
+    showPreviews: boolean;
+    grouping: boolean;
+    historyLimit: number;
+    /** Application ids whose notifications are ignored. */
+    blockedApps: string[];
+  };
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
@@ -277,4 +285,35 @@ export interface BenchRow {
   thinkingChars: number;
   payloadBytes: number;
   usage: UsageStats | null;
+}
+
+export type NotificationAccess =
+  | { state: 'idle' }
+  | { state: 'allowed' }
+  | { state: 'denied' }
+  | { state: 'unavailable'; reason: string };
+
+export interface NotificationEntry {
+  id: number;
+  appId: string;
+  appName: string;
+  title: string;
+  body: string;
+  tsMs: number;
+  unread: boolean;
+}
+
+export interface NotificationApp {
+  id: string;
+  name: string;
+  icon: string | null;
+  blocked: boolean;
+}
+
+export interface NotificationsView {
+  access: NotificationAccess;
+  /** Newest first. */
+  entries: NotificationEntry[];
+  apps: NotificationApp[];
+  unread: number;
 }

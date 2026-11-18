@@ -9,11 +9,14 @@
 mod ai;
 mod lyrics;
 mod media;
+mod notifications;
 mod secrets;
 #[cfg(windows)]
 mod secrets_windows;
 #[cfg(windows)]
 mod media_windows;
+#[cfg(windows)]
+mod notifications_windows;
 
 use vex_core::{
     lyrics::{LyricsResult, TrackQuery},
@@ -130,10 +133,10 @@ fn update_settings(
     state: State<AppState>,
     patch: Value,
 ) -> Result<UpdateResult, String> {
-    let (next, old_hotkey) = {
+    let (next, old_hotkey, old_notifications) = {
         let current = state.settings.lock().unwrap();
         let next = current.with_patch(&patch).map_err(|e| e.to_string())?;
-        (next, current.island.hotkey.clone())
+        (next, current.island.hotkey.clone(), current.notifications.clone())
     };
 
     let mut warnings = Vec::new();
@@ -142,6 +145,9 @@ fn update_settings(
     }
     *state.settings.lock().unwrap() = next.clone();
 
+    if next.notifications != old_notifications {
+        app.state::<notifications::NotificationHandle>().configure(next.notifications.clone());
+    }
     if next.island.hotkey != old_hotkey {
         if let Some(w) = register_hotkey(&app, &next.island.hotkey) {
             warnings.push(w);
@@ -229,6 +235,58 @@ async fn media_transport(
     media.send(command)
 }
 
+// Notifications ---------------------------------------------------------------
+
+#[tauri::command]
+fn notifications_get(handle: State<notifications::NotificationHandle>) -> Option<vex_core::notifications::View> {
+    handle.view()
+}
+
+#[tauri::command]
+fn notification_dismiss(handle: State<notifications::NotificationHandle>, id: u64) {
+    handle.send(vex_core::notifications::Msg::Dismiss(id));
+}
+
+#[tauri::command]
+fn notification_dismiss_all(handle: State<notifications::NotificationHandle>) {
+    handle.send(vex_core::notifications::Msg::DismissAll);
+}
+
+#[tauri::command]
+fn notification_clear(handle: State<notifications::NotificationHandle>, id: u64) {
+    handle.send(vex_core::notifications::Msg::Clear(id));
+}
+
+#[tauri::command]
+fn notification_clear_all(handle: State<notifications::NotificationHandle>) {
+    handle.send(vex_core::notifications::Msg::ClearAll);
+}
+
+/// Open the app that posted a notification (Windows offers no way to "click" the original toast
+/// from outside, so VEX launches the app by its id) and mark the notification read.
+#[tauri::command]
+fn notification_open(handle: State<notifications::NotificationHandle>, id: u64) -> Result<(), String> {
+    let app_id = handle.app_id_of(id).ok_or("That notification is no longer in the history.")?;
+    let target = vex_core::notifications::launch_target(&app_id).ok_or("This app cannot be opened from here.")?;
+    launch_app(&target)?;
+    handle.send(vex_core::notifications::Msg::Dismiss(id));
+    Ok(())
+}
+
+#[cfg(windows)]
+fn launch_app(target: &str) -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg(target)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Could not open the app: {e}"))
+}
+
+#[cfg(not(windows))]
+fn launch_app(_target: &str) -> Result<(), String> {
+    Err("Opening apps is only available on Windows.".into())
+}
+
 // Lyrics (Milestone 3) --------------------------------------------------------
 
 /// Automatic LRCLIB lookup. Returns Ok(None) when the track has no lyrics there;
@@ -275,6 +333,7 @@ pub fn run() {
                 eprintln!("vex: settings.json was unreadable; moved aside and defaults restored");
             }
             let hotkey = loaded.settings.island.hotkey.clone();
+            let notif_cfg = loaded.settings.notifications.clone();
             app.manage(AppState {
                 settings: Mutex::new(loaded.settings),
                 store,
@@ -283,6 +342,7 @@ pub fn run() {
 
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
+            app.manage(notifications::start(app.handle().clone(), notif_cfg));
 
             let chats = vex_core::chat::ChatStore::load(dir.join("chats.json"));
             if chats.recovered_from_corrupt {
@@ -350,6 +410,12 @@ pub fn run() {
             media_get_state,
             media_transport,
             lyrics_fetch,
+            notifications_get,
+            notification_dismiss,
+            notification_dismiss_all,
+            notification_clear,
+            notification_clear_all,
+            notification_open,
             ai::ai_send,
             ai::ai_cancel,
             ai::ai_metrics,

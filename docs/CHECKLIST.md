@@ -81,3 +81,21 @@ Fixed and covered by automated tests (vitest, cargo, Playwright with the test ba
 Needs the user's PC (not verifiable in the sandbox):
 - [ ] Answer quality of qwen3.5:2b / 4b with the new prompt
 - [ ] Real Windows media session: ask "What song am I currently listening to?" with music playing
+
+
+## Notifications module
+
+Automated (Linux sandbox + Windows CI): parsing, filtering, de-duplication, grouping (TS), history limits, dismissal,
+clearing, privacy rules (previews off keeps no text, disabling forgets everything, existing Action Center items are not read,
+nothing in memory is written to disk), engine loop with a fake source, settings sanitising, UI behaviour with a simulated source.
+
+Windows limitation found while building it: `UserNotificationListener` only works for apps with **package identity**. The NSIS
+installer build has none, so Windows may report "Allowed" and then fail reads with "Element not found". VEX probes this and
+shows an honest "unavailable" message instead of an empty list. Getting identity means shipping a (sparse) MSIX package with a
+signing certificate the user's PC trusts; that is a packaging decision, not done here.
+
+Needs the user's PC:
+- [ ] Open Settings -> Notifications, switch it on, accept the Windows prompt. Read the status line: it says either that
+      permission was given, or why notifications are unavailable (see above).
+- [ ] If allowed: trigger a notification from any app; confirm the island preview, panel, grouping, remove, open-app.
+- [ ] CI step "Windows media API smoke test" now also prints what the real listener returned on a runner.

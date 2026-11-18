@@ -35,6 +35,13 @@ export function createTauriBackend(): Backend {
     chatGet: (id) => invoke('chat_get', { id }),
     chatDelete: (id) => invoke('chat_delete', { id }),
     chatClearAll: () => invoke('chat_clear_all'),
+    getNotifications: () => invoke('notifications_get'),
+    onNotifications: (cb) => sub('notifications-view', cb),
+    notificationDismiss: (id) => invoke('notification_dismiss', { id }),
+    notificationDismissAll: () => invoke('notification_dismiss_all'),
+    notificationClear: (id) => invoke('notification_clear', { id }),
+    notificationClearAll: () => invoke('notification_clear_all'),
+    notificationOpen: (id) => invoke('notification_open', { id }),
     assistantPreview: (state) => invoke('assistant_preview_state', { state }),
     onAssistantState: (cb) => sub('assistant-state', cb),
   };

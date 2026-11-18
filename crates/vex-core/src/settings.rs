@@ -153,6 +153,30 @@ pub struct Ai {
     pub ollama_num_ctx: u32,
 }
 
+/// Windows notifications shown in the island. Off until the user turns it on: reading notifications
+/// needs the user's Windows permission and the content stays on this PC (never sent to an AI provider).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Notifications {
+    pub enabled: bool,
+    /// Show the notification text. When off only the app name is shown and the text is never kept.
+    pub show_previews: bool,
+    /// Stack several notifications from one app into a single group.
+    pub grouping: bool,
+    /// How many notifications the history keeps (10..=500).
+    pub history_limit: u32,
+    /// Application ids (AUMIDs) whose notifications are ignored.
+    pub blocked_apps: Vec<String>,
+}
+
+pub const DEFAULT_NOTIFICATION_HISTORY: u32 = 100;
+
+impl Default for Notifications {
+    fn default() -> Self {
+        Self { enabled: false, show_previews: true, grouping: true, history_limit: DEFAULT_NOTIFICATION_HISTORY, blocked_apps: Vec::new() }
+    }
+}
+
 pub const DEFAULT_OLLAMA_KEEP_ALIVE: &str = "30m";
 pub const DEFAULT_OLLAMA_NUM_CTX: u32 = 4096;
 
@@ -236,6 +260,7 @@ pub struct Settings {
     pub island: Island,
     pub music: Music,
     pub ai: Ai,
+    pub notifications: Notifications,
 }
 
 impl Default for Appearance {
@@ -309,6 +334,7 @@ impl Default for Settings {
             island: Island::default(),
             music: Music::default(),
             ai: Ai::default(),
+            notifications: Notifications::default(),
         }
     }
 }
@@ -390,6 +416,16 @@ impl Settings {
             ai.ollama_keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE.into();
         }
         ai.ollama_num_ctx = ai.ollama_num_ctx.clamp(1024, 32768);
+
+        let n = &mut self.notifications;
+        n.history_limit = n.history_limit.clamp(10, 500);
+        let mut seen = std::collections::BTreeSet::new();
+        n.blocked_apps = std::mem::take(&mut n.blocked_apps)
+            .into_iter()
+            .map(|a| a.trim().chars().take(256).collect::<String>())
+            .filter(|a| !a.is_empty() && seen.insert(a.clone()))
+            .take(200)
+            .collect();
     }
 
     /// Apply an RFC 7386 merge patch (objects merge, `null` resets a field to

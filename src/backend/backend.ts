@@ -12,6 +12,7 @@ import type {
   LyricsQuery,
   MediaState,
   MonitorInfo,
+  NotificationsView,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -84,6 +85,18 @@ export interface Backend {
   chatGet(id: string): Promise<Conversation | null>;
   chatDelete(id: string): Promise<void>;
   chatClearAll(): Promise<void>;
+
+  /** Windows notifications (local only; never sent anywhere). Null until the first report. */
+  getNotifications(): Promise<NotificationsView | null>;
+  onNotifications(cb: (v: NotificationsView) => void): Promise<Unsub>;
+  /** Hide from the island (mark read); stays in the history. */
+  notificationDismiss(id: number): Promise<void>;
+  notificationDismissAll(): Promise<void>;
+  /** Remove one notification from the history. */
+  notificationClear(id: number): Promise<void>;
+  notificationClearAll(): Promise<void>;
+  /** Open the app that posted it. Rejects with a readable reason when Windows cannot. */
+  notificationOpen(id: number): Promise<void>;
 
   /** Show an assistant state on the island (used by Settings to preview the face). */
   assistantPreview(state: AssistantState): Promise<void>;

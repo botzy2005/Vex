@@ -758,6 +758,180 @@ def main():
             assert sget("ai-prompt").input_value() == default
         check("settings: the default prompt asks for substance, a custom one is kept, and Reset restores the default", prompt_default_and_reset)
 
+        # ---- notifications (simulated Windows source; the real filtering rules are Rust-tested) ----
+        def collapse():
+            page.keyboard.press("Escape"); page.mouse.move(5, 380); page.wait_for_timeout(1500)
+        def open_notif_tab():
+            isl.hover(); page.wait_for_timeout(900)
+            if isl.get_attribute("data-expanded") != "true":
+                page.evaluate("window.__harness.emitIslandToggle()"); page.wait_for_timeout(900)
+            page.locator('[data-testid="tab-notifications"]').click(); page.wait_for_timeout(350)
+        def notify(**kw):
+            page.evaluate("n => window.__harness.notify(n)", kw); page.wait_for_timeout(250)
+        def stored():
+            return json.loads(sp.evaluate("localStorage.getItem('islet-test-settings')"))["notifications"]
+        def to_notif_settings():
+            sp.locator('[data-testid="page-notifications"]').click(); sp.wait_for_timeout(300)
+
+        collapse()
+        page.evaluate("window.__harness.patchSettings({island:{hoverToExpand:false}})")  # so the pointer resting on the preview does not expand it
+        def notif_off_by_default():
+            to_notif_settings()
+            assert sget("notif-enabled").get_attribute("aria-checked") == "false"
+            expect(sget("notif-privacy")).to_contain_text("never sent to an AI provider")
+            expect(sget("notif-access")).to_have_count(0)
+            notify(appId="mail", appName="Mail", title="While off", body="must be ignored")
+            expect(page.locator('[data-testid="view-notification"]')).to_have_count(0)
+            expect(isl).to_have_attribute("data-view", "idle")
+        check("notifications: off by default, ignore everything while off, privacy statement shown", notif_off_by_default)
+
+        def notif_enable_and_preview():
+            sget("notif-enabled").click(); sp.wait_for_timeout(500)
+            expect(sget("notif-access")).to_contain_text("given VEX permission")
+            notify(appId="mail", appName="Mail", title="Weekly report", body="The numbers are attached.", icon="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnLz4=")
+            page.wait_for_timeout(500)
+            expect(isl).to_have_attribute("data-view", "notification")
+            v = page.locator('[data-testid="view-notification"]')
+            expect(v).to_contain_text("Mail"); expect(v).to_contain_text("Weekly report")
+            assert box()["width"] > 300, box()  # wider than the idle pill (size scale may be non-default here)
+        check("notifications: enabling shows a compact preview with app and title", notif_enable_and_preview)
+
+        def notif_dismiss_preview():
+            page.locator('[data-testid="notif-preview-dismiss"]').click(); page.wait_for_timeout(500)
+            expect(page.locator('[data-testid="view-notification"]')).to_have_count(0)
+            expect(isl).to_have_attribute("data-expanded", "false")  # dismissing must not expand the island
+        check("notifications: dismissing the preview does not expand the island", notif_dismiss_preview)
+
+        def notif_preview_times_out():
+            notify(appId="mail", appName="Mail", title="Second", body="")
+            expect(isl).to_have_attribute("data-view", "notification")
+            page.wait_for_timeout(6600)
+            expect(page.locator('[data-testid="view-notification"]')).to_have_count(0)
+        check("notifications: an unattended preview goes away by itself but stays in the history", notif_preview_times_out)
+
+        def notif_click_preview_opens_panel():
+            notify(appId="chat", appName="Chat", title="Ping 1", body="hello")
+            page.locator('[data-testid="view-notification"]').click(); page.wait_for_timeout(1000)
+            expect(isl).to_have_attribute("data-expanded", "true")
+            expect(page.locator('[data-testid="notifications-panel"]')).to_be_visible()
+        check("notifications: clicking the preview opens the full panel", notif_click_preview_opens_panel)
+
+        def notif_panel_groups():
+            notify(appId="chat", appName="Chat", title="Ping 2", body="again")
+            notify(appId="chat", appName="Chat", title="Ping 3", body="and again")
+            groups = page.locator('[data-testid="notif-group"]')
+            expect(groups).to_have_count(2)
+            assert page.locator('[data-testid="notif-group"][data-app="chat"]').get_attribute("data-count") == "3"
+            assert page.locator('[data-testid="notif-group"][data-app="mail"]').get_attribute("data-count") == "2"
+            expect(page.locator('[data-testid="notif-group"]').first).to_have_attribute("data-app", "chat")  # newest group first
+            expect(page.locator('[data-testid="notif-item"]').first).to_contain_text("Ping 3")
+            expect(page.locator('[data-testid="notif-badge"]')).to_have_text("4")  # Weekly report was dismissed; the other four are unread
+        check("notifications: panel groups by app, newest first, with an unread badge", notif_panel_groups)
+
+        def notif_group_collapse():
+            page.locator('[data-testid="notif-group"][data-app="chat"] [data-testid="notif-group-toggle"]').click(); page.wait_for_timeout(250)
+            expect(page.locator('[data-testid="notif-group"][data-app="chat"] [data-testid="notif-item"]')).to_have_count(0)
+            page.locator('[data-testid="notif-group"][data-app="chat"] [data-testid="notif-group-toggle"]').click(); page.wait_for_timeout(250)
+            expect(page.locator('[data-testid="notif-group"][data-app="chat"] [data-testid="notif-item"]')).to_have_count(3)
+        check("notifications: a group can be folded and unfolded", notif_group_collapse)
+
+        def notif_missing_icon_is_a_letter():
+            expect(page.locator('[data-testid="notif-group"][data-app="chat"] .n-letter')).to_have_text("C")
+        check("notifications: an app without an icon gets a letter tile, not a broken image", notif_missing_icon_is_a_letter)
+
+        def notif_clear_one():
+            page.locator('[data-testid="notif-group"][data-app="chat"] [data-testid="notif-clear"]').first.click(); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="notif-group"][data-app="chat"]')).to_have_attribute("data-count", "2")
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(4)
+        check("notifications: one notification can be removed from the history", notif_clear_one)
+
+        def notif_open_app():
+            page.locator('[data-testid="notif-group"][data-app="mail"] .notif-main').first.click(); page.wait_for_timeout(300)
+            assert len(page.evaluate("window.__harness.notificationOpens")) == 1
+            expect(page.locator('[data-testid="notif-group"][data-app="mail"] [data-testid="notif-item"]').first).to_have_attribute("data-unread", "false")
+        check("notifications: clicking one opens its app and marks it read", notif_open_app)
+
+        def notif_mark_read_and_clear_all():
+            page.locator('[data-testid="notif-mark-read"]').click(); page.wait_for_timeout(250)
+            expect(page.locator('[data-testid="notif-badge"]')).to_have_count(0)
+            page.locator('[data-testid="notif-clear-all"]').click(); page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(0)
+            expect(page.locator('[data-testid="notif-empty"]')).to_be_visible()
+        check("notifications: mark all read and clear all history", notif_mark_read_and_clear_all)
+
+        def notif_grouping_off():
+            sget("notif-grouping").click(); sp.wait_for_timeout(400)
+            for t in ("A", "B"): notify(appId="chat", appName="Chat", title=t, body="")
+            page.wait_for_timeout(300)
+            expect(page.locator('[data-testid="notif-group"]')).to_have_count(2)
+            assert page.locator('[data-testid="notif-group"]').first.get_attribute("data-count") == "1"
+            sget("notif-grouping").click(); sp.wait_for_timeout(300)
+        check("notifications: with grouping off every notification stands alone", notif_grouping_off)
+
+        def notif_per_app_block():
+            expect(sget("notif-app-row")).to_have_count(2)
+            sp.locator('[data-testid="notif-app-row"][data-app="chat"] [data-testid="notif-app-toggle"]').click(); sp.wait_for_timeout(500)
+            assert stored()["blockedApps"] == ["chat"], stored()
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(0)  # its existing entries are removed
+            notify(appId="chat", appName="Chat", title="blocked now", body="")
+            notify(appId="mail", appName="Mail", title="still fine", body="")
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(1)
+            sp.locator('[data-testid="notif-app-row"][data-app="chat"] [data-testid="notif-app-toggle"]').click(); sp.wait_for_timeout(400)
+            assert stored()["blockedApps"] == []
+        check("notifications: a single app can be switched off", notif_per_app_block)
+
+        def notif_previews_off():
+            sget("notif-previews").click(); sp.wait_for_timeout(500)
+            expect(page.locator('[data-testid="notif-item"]').first).to_contain_text("New notification")
+            notify(appId="mail", appName="Mail", title="Top secret", body="classified")
+            assert "Top secret" not in page.inner_text('[data-testid="notifications-panel"]')
+            assert "classified" not in page.inner_text('[data-testid="notifications-panel"]')
+            sget("notif-previews").click(); sp.wait_for_timeout(300)
+        check("notifications: with previews off the text is hidden, including for what was already stored", notif_previews_off)
+
+        def notif_history_limit():
+            sget("notif-limit").select_option("25"); sp.wait_for_timeout(500)
+            assert stored()["historyLimit"] == 25
+            for i in range(30): page.evaluate("i => window.__harness.notify({appId:'mail',appName:'Mail',title:'n'+i,tsMs:Date.now()+i})", i)
+            page.wait_for_timeout(500)
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(25)
+            expect(page.locator('[data-testid="notif-item"]').first).to_contain_text("n29")
+            sget("notif-limit").select_option("100"); sp.wait_for_timeout(300)
+        check("notifications: the history limit is applied", notif_history_limit)
+
+        def notif_clear_from_settings():
+            sget("notif-clear-history").click(); sp.wait_for_timeout(500)
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(0)
+        check("notifications: history can be cleared from Settings", notif_clear_from_settings)
+
+        def notif_unavailable_is_honest():
+            page.evaluate("window.__harness.setNotificationAccess({state:'unavailable', reason:'Windows only lets apps with package identity read notifications.'})"); sp.wait_for_timeout(500)
+            expect(sget("notif-access")).to_contain_text("package identity")
+            expect(page.locator('[data-testid="notif-status"]')).to_contain_text("package identity")
+            page.evaluate("window.__harness.setNotificationAccess({state:'denied'})"); sp.wait_for_timeout(400)
+            expect(sget("notif-access")).to_contain_text("Privacy")
+            page.evaluate("window.__harness.setNotificationAccess(null)"); sp.wait_for_timeout(300)
+        check("notifications: unavailable or denied access is explained, never shown as an empty list", notif_unavailable_is_honest)
+
+        def notif_disable_forgets():
+            notify(appId="mail", appName="Mail", title="keep?", body="")
+            sget("notif-enabled").click(); sp.wait_for_timeout(500)
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(0)
+            expect(page.locator('[data-testid="notif-status"]')).to_contain_text("off")
+            expect(sget("notif-apps-empty")).to_be_visible()
+            notify(appId="mail", appName="Mail", title="after off", body="")
+            expect(page.locator('[data-testid="notif-item"]')).to_have_count(0)
+        check("notifications: turning the module off stops it and forgets what it held", notif_disable_forgets)
+
+        def notif_not_in_ai_context():
+            n_before = page.evaluate("window.__harness.aiSends.length")
+            collapse()
+            assert page.evaluate("JSON.stringify(window.__harness.aiSends)").count("secret") == 0
+            assert page.evaluate("window.__harness.aiSends.length") == n_before
+        check("notifications: nothing from notifications reaches the assistant", notif_not_in_ai_context)
+        page.evaluate("window.__harness.patchSettings({island:{hoverToExpand:true}})")
+        collapse()
+
         # ---- developer page + Ollama tuning ----
         def ollama_tuning_defaults():
             sp.locator('[data-testid="page-assistant"]').click(); sp.wait_for_timeout(300)
