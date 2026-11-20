@@ -441,3 +441,17 @@ html[data-backend='test'] body::after {
 .artist.small { font-size: var(--fs-xs); }
 .lyrics-tab .lyrics-view, .lyrics-tab .empty { flex: 1; min-height: 0; }
 .lyr-line { text-align: center; }
+
+
+/* ---------- Lyrics typography: moderate, wrapped, never clipped ---------- */
+.peek { height: 100%; padding: 0 2px; box-sizing: border-box; }
+.peek-prev, .peek-next { font-size: var(--peek-side, 12px); line-height: 1.3; }
+.peek-now { font-size: var(--peek-now, 14px); line-height: 1.25; max-height: none; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.peek-fade { display: inline; animation: peek-in var(--d-content) var(--ease-out) both; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.lyr-viewport { padding: 0 var(--sp-4); box-sizing: border-box; }
+.lyr-line { width: 94%; margin: 0 auto; padding: 4px 0; overflow-wrap: anywhere; hyphens: auto; line-height: 1.32; }
+.lyr-line[data-dist='0'] { transform: none; }
+.lyr-line:not([data-dist='0']) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lyr-line[data-dist='0'] .lf, .lyr-line[data-dist='0'] .lw { max-width: 100%; }
+.peek { text-align: center; } .peek-prev, .peek-next { text-align: center; }

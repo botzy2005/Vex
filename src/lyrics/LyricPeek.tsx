@@ -1,4 +1,7 @@
+import { useMemo, useRef, type CSSProperties } from 'react';
 import type { Settings } from '../shared/types';
+import { fitStage, peekCap } from './fit';
+import { canvasMeasure, familyOf, useElementSize } from './useTextFit';
 import { LetterLine } from './LetterLine';
 import { lineEndMs } from './sync';
 import type { LyricsHook } from './useLyrics';
@@ -18,6 +21,18 @@ export function LyricPeek({
   playing: boolean;
 }) {
   const { doc } = lyrics;
+  const box = useRef<HTMLDivElement>(null);
+  const { width, height } = useElementSize(box);
+  const cur = doc && activeIndex >= 0 ? doc.lines[activeIndex] : null;
+  const nowText = cur ? cur.text || '♪' : '';
+  const hasPrev = activeIndex > 0;
+  const hasNext = !!doc && activeIndex >= 0 && activeIndex + 1 < doc.lines.length;
+  const family = music.lyricsFont || familyOf(box.current);
+  const sizes = useMemo(() => {
+    if (!nowText || width < 40 || height < 30) return null;
+    return fitStage({ width: width - 4, height, now: nowText, hasPrev, hasNext, cap: peekCap(music.lyricsFontSize), measure: canvasMeasure(family || 'sans-serif', 700), breakWords: music.lyricsStyle !== 'letters' });
+  }, [nowText, width, height, hasPrev, hasNext, music.lyricsFontSize, family]);
+  const vars = sizes ? ({ '--peek-now': `${sizes.now}px`, '--peek-side': `${sizes.side}px` } as CSSProperties) : undefined;
   let body: React.ReactNode = null;
   if (!music.lyricsEnabled) return null;
   if (doc && activeIndex >= 0) {
@@ -48,5 +63,5 @@ export function LyricPeek({
   } else if (lyrics.status === 'not-found' || lyrics.status === 'plain') {
     body = <div className="peek-hint">No synced lyrics</div>;
   }
-  return <div className="peek" data-testid="lyric-peek">{body}</div>;
+  return <div className="peek" data-testid="lyric-peek" ref={box} style={vars}>{body}</div>;
 }

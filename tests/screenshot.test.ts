@@ -142,3 +142,71 @@ describe('appearance presets', () => {
     expect(effectiveGlass(1)).toBe(1);
   });
 });
+
+import { fitFontSize, fitStage, listBaseSize, peekCap, wrapLines } from '../src/lyrics/fit';
+describe('lyric fitting', () => {
+  const measure = (t: string, px: number) => t.length * px * 0.55; // a plain fixed-pitch stand-in for font metrics
+  const long = 'word '.repeat(60).trim(); // 299 characters
+  const wide = 'x'.repeat(120);
+
+  it('counts wrapped lines, and breaks a word that is wider than the box', () => {
+    expect(wrapLines('short', 300, 14, measure)).toBe(1);
+    expect(wrapLines('aaa bbb ccc ddd eee fff', 60, 10, measure)).toBeGreaterThan(1);
+    expect(wrapLines(wide, 200, 14, measure)).toBeGreaterThan(3);
+    expect(wrapLines(wide, 200, 14, measure, false)).toBe(Infinity);
+    expect(wrapLines('', 200, 14, measure)).toBe(1);
+  });
+
+  it('lets short lines use the cap and shrinks longer ones, never below the minimum', () => {
+    const o = { maxWidth: 420, maxHeight: 60, max: 15, min: 11, maxLines: 2, lineHeight: 1.3, measure };
+    expect(fitFontSize('Short line', o)).toBe(15);
+    const medium = fitFontSize('A medium length lyric line that runs on for a while', o);
+    const veryLong = fitFontSize(long, o);
+    expect(medium).toBeLessThanOrEqual(15);
+    expect(veryLong).toBe(11);
+    expect(veryLong).toBeLessThanOrEqual(medium);
+  });
+
+  it('a narrower box never gives a bigger size', () => {
+    const t = 'Streetlights drifting past the glass tonight';
+    let prev = Infinity;
+    for (const w of [520, 420, 320, 220, 140]) {
+      const s = fitFontSize(t, { maxWidth: w, maxHeight: 80, max: 16, min: 11, maxLines: 2, lineHeight: 1.3, measure });
+      expect(s).toBeLessThanOrEqual(prev);
+      prev = s;
+    }
+  });
+
+  it('the three-line stage always fits its height (when the minimum can)', () => {
+    for (const [w, h] of [[420, 110], [300, 90], [240, 80], [420, 70]] as const) {
+      for (const now of ['Short', 'A line of ordinary length for a song', long]) {
+        const s = fitStage({ width: w, height: h, now, hasPrev: true, hasNext: true, cap: 15, measure });
+        const lines = wrapLines(now, w, s.now, measure);
+        const total = lines * s.now * 1.25 + 2 * s.side * 1.3 + 6;
+        expect(s.now).toBeLessThanOrEqual(15);
+        expect(s.side).toBeLessThan(s.now + 0.001);
+        expect(s.side).toBeGreaterThanOrEqual(10.5);
+        if (s.now > 11) expect(total).toBeLessThanOrEqual(h + 0.5);
+      }
+    }
+  });
+
+  it('a short stage gives the previous/next lines their space and a smaller current line', () => {
+    const tall = fitStage({ width: 420, height: 140, now: 'A line of ordinary length for a song', hasPrev: true, hasNext: true, cap: 15, measure });
+    const short = fitStage({ width: 420, height: 56, now: 'A line of ordinary length for a song', hasPrev: true, hasNext: true, cap: 15, measure });
+    expect(short.now).toBeLessThanOrEqual(tall.now);
+  });
+
+  it('base sizes are moderate whatever the setting', () => {
+    for (const user of [12, 13, 14, 20, 32]) {
+      for (const w of [200, 400, 512, 900]) {
+        const b = listBaseSize(w, user);
+        expect(b).toBeGreaterThanOrEqual(11.5);
+        expect(b).toBeLessThanOrEqual(18);
+      }
+      expect(peekCap(user)).toBeLessThanOrEqual(18);
+    }
+    expect(listBaseSize(512, 13)).toBeLessThanOrEqual(14);
+    expect(listBaseSize(200, 13)).toBeLessThanOrEqual(listBaseSize(512, 13));
+  });
+});

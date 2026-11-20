@@ -27,7 +27,7 @@
     "lyricsStyle": "letters",
     "lyricsInCollapsed": true,
     "lyricsFont": "Segoe UI Variable, Segoe UI, system-ui, sans-serif",
-    "lyricsFontSize": 14,
+    "lyricsFontSize": 13,
     "lyricsAnimationSpeed": 1.0,
     "karaoke": true,
     "lyricsOffsetMs": 0

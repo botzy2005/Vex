@@ -3,7 +3,9 @@ import type { LyricsHook } from './useLyrics';
 import type { MediaSession, Settings } from '../shared/types';
 import { useFrameLoop } from '../island/hooks';
 import { LetterLine } from './LetterLine';
+import { fitFontSize, listBaseSize } from './fit';
 import { lineEndMs, wordFractions } from './sync';
+import { canvasMeasure, familyOf, useElementSize } from './useTextFit';
 
 export function LyricsView({
   lyrics,
@@ -26,6 +28,13 @@ export function LyricsView({
   const track = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [offset, speed] = [music.lyricsOffsetMs, music.lyricsAnimationSpeed];
+  const { width: vw, height: vh } = useElementSize(viewport);
+  const base = vw > 0 ? listBaseSize(vw, music.lyricsFontSize) : music.lyricsFontSize;
+  // The current line shrinks (up to two lines, inside the padded width) instead of overflowing.
+  const activeText = doc && activeIndex >= 0 ? doc.lines[activeIndex].text || '♪' : '';
+  const activeSize = vw > 0 && vh > 0 && activeText
+    ? fitFontSize(activeText, { maxWidth: vw * 0.86, maxHeight: vh * 0.42, max: base, min: 11, maxLines: 2, lineHeight: 1.35, breakWords: music.lyricsStyle !== 'letters', measure: canvasMeasure(music.lyricsFont || familyOf(viewport.current) || 'sans-serif', 700) })
+    : base;
 
   // Keep the active line vertically centred; the CSS transition makes it a smooth scroll.
   useLayoutEffect(() => {
@@ -35,7 +44,7 @@ export function LyricsView({
     const el = tr.children[Math.max(0, activeIndex)] as HTMLElement | undefined;
     if (!el) return;
     tr.style.transform = `translateY(${vp.clientHeight / 2 - (el.offsetTop + el.offsetHeight / 2)}px)`;
-  }, [activeIndex, doc, music.lyricsFontSize]);
+  }, [activeIndex, doc, base, activeSize, vh]);
 
   // Karaoke: fill the words of the active line according to the live position.
   const line = doc && activeIndex >= 0 ? doc.lines[activeIndex] : null;
@@ -107,7 +116,7 @@ export function LyricsView({
   return (
     <div
       className="lyrics-view"
-      style={{ '--lyric-size': `${music.lyricsFontSize}px`, '--speed': speed, fontFamily: music.lyricsFont } as CSSProperties}
+      style={{ '--lyric-size': `${base}px`, '--speed': speed, fontFamily: music.lyricsFont } as CSSProperties}
       data-testid="lyrics-view"
     >
       <div className="lyr-viewport" ref={viewport}>
@@ -123,6 +132,7 @@ export function LyricsView({
                 data-dist={activeIndex < 0 ? Math.min(3, i) : dist}
                 data-testid={active ? 'lyric-active' : undefined}
                 data-seekable={session.capabilities.seek}
+                style={active ? { fontSize: activeSize } : undefined}
                 onClick={() => session.capabilities.seek && onSeek(l.timeMs + offset)}
               >
                 {active && letters ? (
