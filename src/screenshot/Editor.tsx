@@ -5,19 +5,38 @@ import {
   clampBox, dragBox, resizeFrom, shapeFromDrag, sizeScale, toClientPoint, toImagePoint, validateSize,
   type Box, type Pt, type Shape, type Tool,
 } from './model';
+import {
+  ArrowIcon, BlurIcon, CircleIcon, CopyIcon, CropIcon, HighlightIcon, LineIcon, PixelateIcon, RectIcon, RedoIcon, ResizeIcon,
+  RotateLeftIcon, RotateRightIcon, SaveIcon, TextIcon, UndoIcon,
+} from './icons';
 import { canvasFromImage, cropDoc, docFromCanvas, exportPng, renderDoc, resizeDoc, rotateDoc, type Doc } from './render';
 
-const TOOLS: Array<{ id: Tool; label: string; hint: string }> = [
-  { id: 'crop', label: 'Crop', hint: 'Drag the area to keep' },
-  { id: 'arrow', label: 'Arrow', hint: 'Drag to draw an arrow' },
-  { id: 'line', label: 'Line', hint: 'Drag to draw a line' },
-  { id: 'rect', label: 'Rectangle', hint: 'Drag to draw a rectangle' },
-  { id: 'ellipse', label: 'Circle', hint: 'Drag to draw a circle or oval' },
-  { id: 'text', label: 'Text', hint: 'Click where the text should go' },
-  { id: 'highlight', label: 'Highlight', hint: 'Drag over what to highlight' },
-  { id: 'blur', label: 'Blur', hint: 'Drag over anything private to blur it' },
-  { id: 'pixelate', label: 'Pixelate', hint: 'Drag over anything private to pixelate it' },
+type ToolDef = { id: Tool; label: string; hint: string; icon: typeof CropIcon };
+const TOOL_GROUPS: Array<{ label: string; tools: ToolDef[] }> = [
+  { label: 'Select', tools: [{ id: 'crop', label: 'Crop', hint: 'Drag the area to keep', icon: CropIcon }] },
+  {
+    label: 'Annotate',
+    tools: [
+      { id: 'arrow', label: 'Arrow', hint: 'Drag to draw an arrow', icon: ArrowIcon },
+      { id: 'line', label: 'Line', hint: 'Drag to draw a line', icon: LineIcon },
+      { id: 'rect', label: 'Rectangle', hint: 'Drag to draw a rectangle', icon: RectIcon },
+      { id: 'ellipse', label: 'Circle', hint: 'Drag to draw a circle or oval', icon: CircleIcon },
+      { id: 'text', label: 'Text', hint: 'Click where the text should go', icon: TextIcon },
+      { id: 'highlight', label: 'Highlight', hint: 'Drag over what to highlight', icon: HighlightIcon },
+    ],
+  },
+  {
+    label: 'Hide',
+    tools: [
+      { id: 'blur', label: 'Blur', hint: 'Drag over anything private to blur it', icon: BlurIcon },
+      { id: 'pixelate', label: 'Pixelate', hint: 'Drag over anything private to pixelate it', icon: PixelateIcon },
+    ],
+  },
 ];
+const TOOLS = TOOL_GROUPS.flatMap((g) => g.tools);
+/** Which option controls matter for each tool, so the options row only shows what applies. */
+const USES_COLOR = new Set<Tool>(['arrow', 'line', 'rect', 'ellipse', 'text', 'highlight']);
+const USES_WIDTH = new Set<Tool>(['arrow', 'line', 'rect', 'ellipse']);
 
 const COLORS = ['#e5252a', '#ff9500', '#ffd60a', '#30d158', '#0a84ff', '#ffffff', '#000000'];
 
@@ -259,49 +278,60 @@ export function EditorApp() {
   return (
     <div className="ed" data-testid="editor">
       <header className="ed-bar">
-        <div className="ed-group" role="toolbar" aria-label="Tools">
-          {TOOLS.map((t) => (
-            <button key={t.id} className="ed-btn" data-active={tool === t.id} aria-pressed={tool === t.id} title={t.hint} data-testid={`tool-${t.id}`} onClick={() => { setTool(t.id); setCrop(null); setTextAt(null); }}>
-              {t.label}
-            </button>
+        <div className="ed-tools" role="toolbar" aria-label="Tools">
+          {TOOL_GROUPS.map((g) => (
+            <div key={g.label} className="ed-group" role="group" aria-label={g.label} data-label={g.label}>
+              {g.tools.map((t) => (
+                <button key={t.id} className="ed-tool" data-active={tool === t.id} aria-pressed={tool === t.id} aria-label={t.label} title={`${t.label}: ${t.hint}`} data-testid={`tool-${t.id}`} onClick={() => { setTool(t.id); setCrop(null); setTextAt(null); }}>
+                  <t.icon />
+                  <span className="ed-tool-label">{t.label}</span>
+                </button>
+              ))}
+            </div>
           ))}
-        </div>
-        <div className="ed-group">
-          <button className="ed-btn" data-testid="editor-undo" disabled={!hist || !canUndo(hist)} onClick={undoNow} title="Undo (Ctrl+Z)">Undo</button>
-          <button className="ed-btn" data-testid="editor-redo" disabled={!hist || !canRedo(hist)} onClick={redoNow} title="Redo (Ctrl+Y)">Redo</button>
-        </div>
-        <div className="ed-group">
-          <button className="ed-btn" data-testid="rotate-left" disabled={!doc} onClick={() => rotate(-1)} title="Rotate 90° counter-clockwise">⟲ Rotate</button>
-          <button className="ed-btn" data-testid="rotate-right" disabled={!doc} onClick={() => rotate(1)} title="Rotate 90° clockwise">Rotate ⟳</button>
-          <button className="ed-btn" data-testid="resize-open" disabled={!doc} onClick={() => doc && setResizing({ w: doc.width, h: doc.height, lock: true })}>Resize</button>
+          <div className="ed-group" role="group" aria-label="Transform" data-label="Transform">
+            <button className="ed-tool" data-testid="rotate-left" disabled={!doc} onClick={() => rotate(-1)} aria-label="Rotate left" title="Rotate 90° counter-clockwise"><RotateLeftIcon /><span className="ed-tool-label">Left</span></button>
+            <button className="ed-tool" data-testid="rotate-right" disabled={!doc} onClick={() => rotate(1)} aria-label="Rotate right" title="Rotate 90° clockwise"><RotateRightIcon /><span className="ed-tool-label">Right</span></button>
+            <button className="ed-tool" data-testid="resize-open" disabled={!doc} onClick={() => doc && setResizing({ w: doc.width, h: doc.height, lock: true })} aria-label="Resize" title="Change the image size"><ResizeIcon /><span className="ed-tool-label">Resize</span></button>
+          </div>
         </div>
         <span className="grow" />
-        <div className="ed-group">
-          <button className="ed-btn" data-testid="editor-copy" disabled={!doc || busy} onClick={() => void copy()} title="Copy the image to the clipboard">Copy</button>
-          <button className="ed-btn primary" data-testid="editor-save" disabled={!doc || busy} onClick={() => void save(false)} title="Save to your screenshot folder (Ctrl+S)">Save</button>
+        <div className="ed-group" role="group" aria-label="History" data-label="History">
+          <button className="ed-tool icon-only" data-testid="editor-undo" disabled={!hist || !canUndo(hist)} onClick={undoNow} aria-label="Undo" title="Undo (Ctrl+Z)"><UndoIcon /></button>
+          <button className="ed-tool icon-only" data-testid="editor-redo" disabled={!hist || !canRedo(hist)} onClick={redoNow} aria-label="Redo" title="Redo (Ctrl+Y)"><RedoIcon /></button>
+        </div>
+        <div className="ed-output" role="group" aria-label="Output">
+          <button className="ed-btn" data-testid="editor-copy" disabled={!doc || busy} onClick={() => void copy()} title="Copy the image to the clipboard"><CopyIcon />Copy</button>
           <button className="ed-btn" data-testid="editor-save-as" disabled={!doc || busy} onClick={() => void save(true)} title="Choose where to save (Ctrl+Shift+S)">Save as…</button>
+          <button className="ed-btn primary" data-testid="editor-save" disabled={!doc || busy} onClick={() => void save(false)} title="Save to your screenshot folder (Ctrl+S)"><SaveIcon />Save</button>
         </div>
       </header>
 
-      <div className="ed-opts">
-        <div className="ed-swatches" role="group" aria-label="Colour">
-          {COLORS.map((c) => (
-            <button key={c} className="ed-swatch" style={{ background: c }} data-active={color === c} aria-label={`Colour ${c}`} aria-pressed={color === c} data-testid={`color-${c.slice(1)}`} onClick={() => setColor(c)} />
-          ))}
-          <input type="color" aria-label="Custom colour" value={color} data-testid="editor-color" onChange={(e) => setColor(e.target.value)} />
-        </div>
-        <label className="ed-field">
-          Line
-          <select aria-label="Line width" data-testid="editor-width" value={width} onChange={(e) => setWidth(Number(e.target.value))}>
-            {[2, 4, 6, 10, 16].map((w) => <option key={w} value={w}>{w}</option>)}
-          </select>
-        </label>
-        <label className="ed-field">
-          Text
-          <select aria-label="Text size" data-testid="editor-text-size" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))}>
-            {[18, 28, 40, 60, 90].map((w) => <option key={w} value={w}>{w}</option>)}
-          </select>
-        </label>
+      <div className="ed-opts" data-tool={tool}>
+        {USES_COLOR.has(tool) && (
+          <div className="ed-swatches" role="group" aria-label="Colour">
+            {COLORS.map((c) => (
+              <button key={c} className="ed-swatch" style={{ background: c }} data-active={color === c} aria-label={`Colour ${c}`} aria-pressed={color === c} data-testid={`color-${c.slice(1)}`} onClick={() => setColor(c)} />
+            ))}
+            <input type="color" aria-label="Custom colour" value={color} data-testid="editor-color" onChange={(e) => setColor(e.target.value)} />
+          </div>
+        )}
+        {USES_WIDTH.has(tool) && (
+          <label className="ed-field">
+            Line
+            <select aria-label="Line width" data-testid="editor-width" value={width} onChange={(e) => setWidth(Number(e.target.value))}>
+              {[2, 4, 6, 10, 16].map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </label>
+        )}
+        {tool === 'text' && (
+          <label className="ed-field">
+            Text
+            <select aria-label="Text size" data-testid="editor-text-size" value={textSize} onChange={(e) => setTextSize(Number(e.target.value))}>
+              {[18, 28, 40, 60, 90].map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </label>
+        )}
         <span className="ed-hint" data-testid="editor-hint">{toolInfo.hint}</span>
         <span className="grow" />
         {doc && <span className="ed-dims" data-testid="editor-size">{doc.width} × {doc.height}</span>}

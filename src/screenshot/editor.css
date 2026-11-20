@@ -55,3 +55,23 @@ body { background: var(--bg); color: var(--fg); font: var(--fs-md) var(--font); 
 .ed-status { transition: color var(--d-content) var(--ease-std); }
 .ed-status[data-kind='error'] { color: var(--bad); }
 @media (prefers-reduced-motion: reduce) { .ed-panel { animation: none; } .ed-btn { transition: none; } }
+
+/* ---------- toolbar composition (grouped icon tools) ---------- */
+.ed-bar { gap: var(--sp-3); flex-wrap: nowrap; align-items: center; padding: 8px 14px; }
+.ed-tools { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+.ed-group { display: flex; gap: 2px; background: var(--bg); padding: 3px; border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--line); }
+.ed-tool { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: var(--r-sm); color: var(--dim); font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; transition: background var(--d-micro) var(--ease-std), color var(--d-micro) var(--ease-std), transform var(--d-micro) var(--ease-out); }
+.ed-tool.icon-only { padding: 0; width: 32px; justify-content: center; }
+.ed-tool:hover:not(:disabled) { background: var(--chip); color: var(--fg); }
+.ed-tool:active:not(:disabled) { transform: scale(0.95); }
+.ed-tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ed-tool[data-active='true'] { background: var(--accent); color: var(--on-accent); }
+.ed-tool:disabled { opacity: 0.38; cursor: default; }
+.ed-output { display: flex; gap: var(--sp-2); align-items: center; }
+.ed-output .ed-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; }
+.ed-output .ed-btn.primary { padding: 0 16px; font-weight: var(--fw-semi); }
+.ed-opts { min-height: 40px; background: var(--panel); border-bottom: 1px solid var(--line); gap: var(--sp-4); }
+.ed-opts[data-tool='crop'], .ed-opts[data-tool='blur'], .ed-opts[data-tool='pixelate'] { gap: var(--sp-3); }
+@media (max-width: 1500px) { .ed-tool-label { display: none; } .ed-tool { padding: 0; width: 32px; justify-content: center; } }
+.ed-output .ed-btn { white-space: nowrap; }
+.ed-tool[data-active='true'], .ed-tool[data-active='true']:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
