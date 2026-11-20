@@ -1,7 +1,7 @@
-:root { color-scheme: dark; --bg: #1b1b1f; --panel: #232328; --line: rgba(255,255,255,.09); --fg: #f2f2f5; --dim: rgba(255,255,255,.62); --chip: rgba(255,255,255,.08); --accent: #0a84ff; }
-:root[data-theme='light'] { color-scheme: light; --bg: #f3f3f6; --panel: #fff; --line: rgba(0,0,0,.1); --fg: #17171b; --dim: rgba(0,0,0,.6); --chip: rgba(0,0,0,.06); }
+:root { color-scheme: dark; --bg: var(--vex-bg); --panel: var(--vex-surface); --line: var(--vex-line); --fg: var(--vex-text); --dim: var(--vex-text-dim); --chip: rgba(255,255,255,.07); --accent: var(--vex-accent); --on-accent: var(--vex-on-accent); }
+:root[data-theme='light'] { color-scheme: light; --chip: rgba(0,0,0,.06); }
 html, body, #root { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--fg); font: 13px/1.45 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--fg); font: var(--fs-md)/1.45 var(--font); }
 .settings { display: grid; grid-template-columns: 190px 1fr; height: 100%; }
 aside { background: var(--panel); border-right: 1px solid var(--line); padding: 18px 10px; }
 aside h1 { font-size: 15px; margin: 0 10px 14px; letter-spacing: .02em; }
@@ -26,7 +26,7 @@ select:focus, input[type='text']:focus, textarea:focus { outline: 2px solid var(
 input[type='color'] { width: 44px; height: 28px; border: 1px solid var(--line); border-radius: 8px; background: none; padding: 2px; cursor: pointer; }
 .segmented { display: inline-flex; background: var(--chip); border-radius: 9px; padding: 2px; flex-wrap: wrap; }
 .segmented button { all: unset; box-sizing: border-box; padding: 5px 12px; border-radius: 7px; cursor: pointer; color: var(--dim); }
-.segmented button[data-on='true'] { background: var(--accent); color: #fff; }
+.segmented button[data-on='true'] { background: var(--accent); color: var(--on-accent); }
 .toggle { all: unset; box-sizing: border-box; width: 40px; height: 24px; border-radius: 12px; background: var(--chip); border: 1px solid var(--line); cursor: pointer; position: relative; transition: background .2s; }
 .toggle span { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .toggle[data-on='true'] { background: var(--accent); }
@@ -40,11 +40,11 @@ input[type='color'] { width: 44px; height: 28px; border: 1px solid var(--line); 
 .face-preview { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--fg); }
 .face-preview .face { --face: var(--fg); }
 .dim { color: var(--dim); }
-.face { --accent: #0a84ff; }
+.face { --accent: var(--vex-accent); }
 
 /* ---------- assistant connection ---------- */
 .btn { all: unset; box-sizing: border-box; padding: 6px 14px; border-radius: 8px; background: var(--chip); border: 1px solid var(--line); cursor: pointer; font-weight: 600; }
-.btn:hover:not(:disabled) { background: var(--accent); color: #fff; border-color: transparent; }
+.btn:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn.danger:hover:not(:disabled) { background: #d6453d; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

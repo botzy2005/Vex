@@ -17,6 +17,7 @@ import { useClipboard } from '../clipboard/useClipboard';
 import { ScreenshotErrorToast, ScreenshotPanel, ScreenshotToast } from '../screenshot/ScreenshotPanel';
 import { useScreenshotToast } from '../screenshot/useScreenshots';
 import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
+import { onAccent } from './accent';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { Artwork, MusicPanel } from './MusicPanel';
@@ -104,7 +105,7 @@ export function IslandApp() {
       className="stage"
       data-theme={theme}
       data-motion={a.motion}
-      style={{ '--accent': accent, '--glass': a.glassOpacity, '--speed': music.lyricsAnimationSpeed } as CSSProperties}
+      style={{ '--accent': accent, '--on-accent': onAccent(accent), '--glass': a.glassOpacity, '--speed': music.lyricsAnimationSpeed } as CSSProperties}
     >
       <div
         ref={islandRef}

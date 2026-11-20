@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { createBackend } from './backend';
 import { BackendContext } from './backend/hooks';
 import { IslandApp } from './island/App';
+import './styles/tokens.css';
 import './styles/island.css';
 import './styles/face.css';
 

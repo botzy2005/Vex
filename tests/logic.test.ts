@@ -515,3 +515,14 @@ describe('clipboard helpers', () => {
     expect(l.baseHeight).toBeGreaterThan(200);
   });
 });
+
+import { onAccent } from '../src/island/accent';
+describe('onAccent', () => {
+  it('chooses readable text for light and dark accents', () => {
+    expect(onAccent('#a5b4fc')).toBe('#101114'); // the default pastel accent needs dark text
+    expect(onAccent('#ffd60a')).toBe('#101114');
+    expect(onAccent('#0a3d91')).toBe('#ffffff');
+    expect(onAccent('#000000')).toBe('#ffffff');
+    expect(onAccent('not a colour')).toBe('#101114');
+  });
+});

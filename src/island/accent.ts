@@ -78,3 +78,19 @@ export async function extractAccent(url: string): Promise<string | null> {
     return null;
   }
 }
+
+export const DEFAULT_ACCENT = '#a5b4fc';
+
+/** Text colour that stays readable on an accent-coloured button (dark on light accents, white on dark ones). */
+export function onAccent(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return '#101114';
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  // Pick whichever of near-black / white has the higher contrast ratio.
+  return (L + 0.05) / (0.006 + 0.05) >= 1.05 / (L + 0.05) ? '#101114' : '#ffffff';
+}

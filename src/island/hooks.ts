@@ -3,7 +3,7 @@ import type { Backend } from '../backend/backend';
 import { findActiveIndex } from '../lyrics/sync';
 import { currentPositionMs } from '../lyrics/sync';
 import type { LyricsDoc, MediaSession, Motion, Settings } from '../shared/types';
-import { extractAccent } from './accent';
+import { DEFAULT_ACCENT, extractAccent } from './accent';
 import type { Layout } from './layout';
 import { MOTION_PRESETS, Spring } from './spring';
 
@@ -67,7 +67,7 @@ export function useAccent(settings: Settings | null, artworkUrl: string | undefi
       cancelled = true;
     };
   }, [artworkUrl]);
-  if (!settings) return '#0a84ff';
+  if (!settings) return DEFAULT_ACCENT;
   return settings.appearance.accentSource === 'artwork' && fromArt ? fromArt : settings.appearance.customAccent;
 }
 

@@ -8,7 +8,7 @@ use serde_json::Value;
 
 pub const SETTINGS_VERSION: u32 = 1;
 pub const DEFAULT_HOTKEY: &str = "Ctrl+Alt+I";
-pub const DEFAULT_ACCENT: &str = "#0a84ff";
+pub const DEFAULT_ACCENT: &str = "#a5b4fc";
 pub const DEFAULT_LYRICS_FONT: &str = "Segoe UI Variable, Segoe UI, system-ui, sans-serif";
 
 #[derive(Debug, thiserror::Error)]

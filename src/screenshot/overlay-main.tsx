@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { createBackend } from '../backend';
 import { BackendContext } from '../backend/hooks';
 import { Overlay } from './Overlay';
+import '../styles/tokens.css';
 import './overlay.css';
 
 createBackend()

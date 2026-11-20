@@ -1,7 +1,7 @@
-:root { color-scheme: dark; --bg: #16171a; --panel: #1f2125; --chip: #2a2d33; --chip-hi: #3a3e46; --fg: #eceef2; --dim: #9aa0aa; --line: #34373e; --accent: #0a84ff; --bad: #ff6b63; }
-:root[data-theme='light'] { color-scheme: light; --bg: #eef0f3; --panel: #ffffff; --chip: #e6e8ec; --chip-hi: #d5d9e0; --fg: #1b1d21; --dim: #5d6470; --line: #cfd3da; }
+:root { color-scheme: dark; --bg: var(--vex-bg); --panel: var(--vex-surface); --chip: var(--vex-elevated); --chip-hi: #323644; --fg: var(--vex-text); --dim: var(--vex-text-dim); --line: var(--vex-line); --accent: var(--vex-accent); --on-accent: var(--vex-on-accent); --bad: var(--vex-danger); }
+:root[data-theme='light'] { color-scheme: light; --chip-hi: #dfe2ea; }
 html, body, #root { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--fg); font: 13px 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--fg); font: var(--fs-md) var(--font); }
 .grow { flex: 1; }
 .ed { display: flex; flex-direction: column; height: 100%; }
 .ed-bar, .ed-opts, .ed-panel { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -11,8 +11,8 @@ body { background: var(--bg); color: var(--fg); font: 13px 'Segoe UI Variable', 
 .ed-btn { border: 0; background: var(--chip); color: var(--fg); padding: 6px 11px; border-radius: 8px; font: inherit; cursor: pointer; }
 .ed-btn:hover:not(:disabled) { background: var(--chip-hi); }
 .ed-btn:disabled { opacity: 0.4; cursor: default; }
-.ed-btn[data-active='true'] { background: var(--accent); color: #fff; }
-.ed-btn.primary { background: var(--accent); color: #fff; }
+.ed-btn[data-active='true'] { background: var(--accent); color: var(--on-accent); }
+.ed-btn.primary { background: var(--accent); color: var(--on-accent); }
 .ed-btn:focus-visible, .ed-swatch:focus-visible, .ed-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ed-swatches { display: flex; align-items: center; gap: 6px; }
 .ed-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
