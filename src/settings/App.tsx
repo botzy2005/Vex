@@ -4,6 +4,7 @@ import { useBackend, useResolvedTheme, useSettings } from '../backend/hooks';
 import type { AiTestResult, AssistantState, MonitorInfo, Settings, SettingsPatch } from '../shared/types';
 import { DeveloperPage } from './DeveloperPage';
 import { ClipboardPage } from './ClipboardPage';
+import { AppearancePage } from './AppearancePage';
 import { ScreenshotPage } from './ScreenshotPage';
 import { NotificationsPage } from './NotificationsPage';
 import { CommitText, HotkeyInput, Row, Segmented, Select, Slider, Toggle } from './controls';
@@ -35,7 +36,6 @@ function keepCurrent<T extends string | number>(opts: Array<{ value: T; label: s
 }
 
 type Update = (p: SettingsPatch) => Promise<void>;
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export function SettingsApp() {
   const { settings, update, warnings } = useSettings();
@@ -76,27 +76,6 @@ export function SettingsApp() {
 
 function ResetButton({ onClick, testId }: { onClick(): void; testId?: string }) {
   return <button className="reset" onClick={onClick} data-testid={testId}>Reset section</button>;
-}
-
-function AppearancePage({ s, update }: { s: Settings; update: Update }) {
-  const a = s.appearance;
-  const set = (p: Partial<Settings['appearance']>) => update({ appearance: p });
-  return (
-    <section>
-      <h2>Appearance</h2>
-      <Row label="Theme"><Segmented label="Theme" testId="theme" value={a.theme} onChange={(v) => set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'System' }]} /></Row>
-      <Row label="Shape" hint="Pill floats below the top edge; Notch hangs from it with a flat top."><Segmented label="Shape" testId="shape" value={a.shape} onChange={(v) => set({ shape: v })} options={[{ value: 'pill', label: 'Pill' }, { value: 'notch', label: 'Notch' }]} /></Row>
-      <Row label="Glass opacity" hint="Lower values let the desktop show through."><Slider label="Glass opacity" testId="glass" min={0.4} max={1} step={0.01} value={a.glassOpacity} format={pct} onChange={(v) => set({ glassOpacity: v })} /></Row>
-      <Row label="Corner radius" hint="Applies to the expanded island."><Slider label="Corner radius" testId="radius" min={8} max={40} step={1} value={a.cornerRadius} format={(v) => `${v}px`} onChange={(v) => set({ cornerRadius: v })} /></Row>
-      <Row label="Size" hint="Scales every part of the island."><Slider label="Size" testId="scale" min={0.8} max={1.4} step={0.05} value={a.sizeScale} format={pct} onChange={(v) => set({ sizeScale: v })} /></Row>
-      <Row label="Animation" hint="Off removes all motion. Your Windows 'reduce motion' setting is also respected."><Segmented label="Animation" testId="motion" value={a.motion} onChange={(v) => set({ motion: v })} options={[{ value: 'off', label: 'Off' }, { value: 'subtle', label: 'Subtle' }, { value: 'normal', label: 'Normal' }, { value: 'bouncy', label: 'Bouncy' }]} /></Row>
-      <Row label="Accent colour" hint="Artwork uses the dominant colour of the current album cover."><Segmented label="Accent source" testId="accent-source" value={a.accentSource} onChange={(v) => set({ accentSource: v })} options={[{ value: 'artwork', label: 'Album artwork' }, { value: 'custom', label: 'Custom' }]} /></Row>
-      <Row label="Custom accent" hint="Used when the source is Custom, or when a track has no artwork.">
-        <input type="color" aria-label="Custom accent colour" data-testid="accent-color" value={a.customAccent} onChange={(e) => set({ customAccent: e.target.value })} />
-      </Row>
-      <ResetButton testId="reset-appearance" onClick={() => update({ appearance: null } as unknown as SettingsPatch)} />
-    </section>
-  );
 }
 
 function IslandPage({ s, update }: { s: Settings; update: Update }) {

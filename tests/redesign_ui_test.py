@@ -61,5 +61,38 @@ with sync_playwright() as p:
         expect(isl).to_have_attribute("data-media", "false")
         expect(pg.locator('[data-testid="media-backdrop"]')).to_have_attribute("data-on", "false")
     check("collapsed island is plain again (no backdrop)", collapses_without_backdrop)
+
+    sp = pg.context.new_page(); sp.set_viewport_size({"width": 860, "height": 620})
+    sp.goto(BASE + "/settings.html"); sp.wait_for_selector('[data-testid="appearance-studio"]'); sp.wait_for_timeout(400)
+    stored = lambda: __import__("json").loads(sp.evaluate("localStorage.getItem('islet-test-settings')"))["appearance"]
+
+    def studio_preview_and_default_preset():
+        expect(sp.locator('[data-testid="island-preview"]')).to_be_visible()
+        expect(sp.locator('[data-testid="preset-midnight"]')).to_have_attribute("aria-pressed", "true")
+    check("studio: live preview is shown and the default look is the active preset", studio_preview_and_default_preset)
+
+    def preset_applies_and_preview_follows():
+        sp.locator('[data-testid="preset-notch"]').click(); sp.wait_for_timeout(400)
+        a = stored(); assert a["shape"] == "notch" and a["cornerRadius"] == 20, a
+        expect(sp.locator('[data-testid="island-preview"]')).to_have_attribute("data-shape", "notch")
+        assert sp.evaluate("getComputedStyle(document.querySelector('[data-testid=preview-island]')).borderTopLeftRadius") == "0px"
+        expect(sp.locator('[data-testid="preset-notch"]')).to_have_attribute("aria-pressed", "true")
+        sp.locator('[data-testid="preset-daylight"]').click(); sp.wait_for_timeout(400)
+        assert stored()["theme"] == "light"
+        expect(sp.locator('[data-testid="island-preview"]')).to_have_attribute("data-theme", "light")
+    check("studio: a preset applies its settings and the preview follows", preset_applies_and_preview_follows)
+
+    def tweak_clears_active_preset():
+        sp.locator('[data-testid="radius"]').fill("31"); sp.wait_for_timeout(300)
+        expect(sp.locator('[data-testid="preset-daylight"]')).to_have_attribute("aria-pressed", "false")
+        r = sp.evaluate("getComputedStyle(document.querySelector('[data-testid=preview-island]')).borderTopLeftRadius")
+        assert abs(float(r[:-2]) - 31) < 0.1, r
+    check("studio: fine-tuning a control leaves the preset and the preview radius updates", tweak_clears_active_preset)
+
+    def custom_accent_reaches_preview():
+        sp.locator('[data-testid="accent-source-custom"]').click(); sp.locator('[data-testid="accent-color"]').fill("#ff8800"); sp.wait_for_timeout(300)
+        acc = sp.evaluate("getComputedStyle(document.querySelector('[data-testid=island-preview]')).getPropertyValue('--accent').trim()")
+        assert acc.lower() == "#ff8800", acc
+    check("studio: the chosen accent colour shows in the preview", custom_accent_reaches_preview)
     b.close()
 print(f"{sum(results)}/{len(results)} redesign checks passed"); sys.exit(0 if all(results) else 1)

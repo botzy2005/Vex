@@ -52,3 +52,20 @@
   --shadow-2: 0 6px 14px rgba(0, 0, 0, 0.14);
   --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
+
+/* Island surface variables: shared by the real island (.stage) and the live preview in Settings (.vex-preview). */
+.stage, .vex-preview {
+  --fg: var(--vex-text); --fg-dim: rgba(231, 233, 240, 0.66); --fg-faint: rgba(231, 233, 240, 0.36);
+  --surface-top: 22, 23, 28; --surface-bottom: 12, 13, 16;
+  --edge: rgba(255, 255, 255, 0.075); --hl: rgba(255, 255, 255, 0.09);
+  --chip: rgba(255, 255, 255, 0.07); --chip-strong: rgba(255, 255, 255, 0.14);
+  --btn-bg: var(--vex-text); --btn-fg: var(--vex-bg); --face: var(--vex-text);
+  --accent: var(--vex-accent); --on-accent: var(--vex-on-accent); --glass: 0.94;
+}
+.stage[data-theme='light'], .vex-preview[data-theme='light'] {
+  --fg: #16161a; --fg-dim: rgba(20, 20, 26, 0.64); --fg-faint: rgba(20, 20, 26, 0.36);
+  --surface-top: 252, 252, 254; --surface-bottom: 232, 232, 238;
+  --edge: rgba(0, 0, 0, 0.1); --hl: rgba(255, 255, 255, 0.95);
+  --chip: rgba(0, 0, 0, 0.06); --chip-strong: rgba(0, 0, 0, 0.12);
+  --btn-bg: #16161a; --btn-fg: #fff; --face: #16161a; --on-accent: #fff;
+}

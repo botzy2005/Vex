@@ -117,3 +117,28 @@ describe('island screenshot view', () => {
     expect(resolveCompactView({ ...base, screenshot: false })).toBe('lyrics');
   });
 });
+
+import { activePreset, PRESETS } from '../src/settings/presets';
+import { effectiveGlass } from '../src/settings/IslandPreview';
+describe('appearance presets', () => {
+  const base = { theme: 'dark', shape: 'pill', glassOpacity: 0.92, cornerRadius: 26, accentSource: 'artwork', customAccent: '#A5B4FC', motion: 'normal', sizeScale: 1 } as const;
+  it('every preset stays inside the settings ranges and has a valid colour', () => {
+    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length);
+    for (const p of PRESETS) {
+      expect(p.look.glassOpacity).toBeGreaterThanOrEqual(0.4);
+      expect(p.look.glassOpacity).toBeLessThanOrEqual(1);
+      expect(p.look.cornerRadius).toBeGreaterThanOrEqual(8);
+      expect(p.look.cornerRadius).toBeLessThanOrEqual(40);
+      expect(p.look.customAccent).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+  it('recognises the active preset and none after a tweak', () => {
+    expect(activePreset({ ...base })).toBe('midnight');
+    expect(activePreset({ ...base, cornerRadius: 27 })).toBeNull();
+    expect(activePreset({ ...base, theme: 'light', accentSource: 'custom', customAccent: '#5b6cd6', glassOpacity: 0.96 })).toBe('daylight');
+  });
+  it('the preview surface keeps the same opacity floor as the island', () => {
+    expect(effectiveGlass(0.4)).toBeGreaterThanOrEqual(0.88);
+    expect(effectiveGlass(1)).toBe(1);
+  });
+});
