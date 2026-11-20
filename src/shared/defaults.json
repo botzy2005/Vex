@@ -65,5 +65,18 @@
     "hotkeyMode": "region",
     "sound": false,
     "history": "session"
+  },
+  "launcher": {
+    "enabled": true,
+    "hotkey": "Alt+Space",
+    "apps": true,
+    "files": true,
+    "commands": true,
+    "web": true,
+    "webEngine": "duckduckgo",
+    "ai": true,
+    "maxResults": 8,
+    "rememberRecents": true,
+    "fileFolders": []
   }
 }

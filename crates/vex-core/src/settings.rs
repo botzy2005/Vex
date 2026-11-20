@@ -332,6 +332,59 @@ pub fn normalize_endpoint(raw: &str) -> Option<String> {
     Some(t.to_string())
 }
 
+/// Search engine used by the launcher's explicit "search the web" command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WebEngine {
+    Duckduckgo,
+    Google,
+    Bing,
+}
+
+pub const DEFAULT_LAUNCHER_HOTKEY: &str = "Alt+Space";
+
+/// Quick Launcher. Nothing leaves the PC from here except what the user explicitly asks for: a web
+/// search sends the typed query to the chosen engine through the browser, and an AI command sends the
+/// typed text to the configured AI provider.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Launcher {
+    pub enabled: bool,
+    /// Global shortcut that opens the launcher (empty disables it).
+    pub hotkey: String,
+    pub apps: bool,
+    pub files: bool,
+    pub commands: bool,
+    pub web: bool,
+    pub web_engine: WebEngine,
+    /// Allow the ask/explain/summarize/rewrite/translate commands.
+    pub ai: bool,
+    /// 3..=12 rows shown.
+    pub max_results: u32,
+    /// Remember recent launches and searches (kept on this PC).
+    pub remember_recents: bool,
+    /// Folders the file index covers. Empty means Desktop, Documents, Downloads, Pictures, Videos, Music.
+    pub file_folders: Vec<String>,
+}
+
+impl Default for Launcher {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            hotkey: DEFAULT_LAUNCHER_HOTKEY.into(),
+            apps: true,
+            files: true,
+            commands: true,
+            web: true,
+            web_engine: WebEngine::Duckduckgo,
+            ai: true,
+            max_results: 8,
+            remember_recents: true,
+            file_folders: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -343,6 +396,7 @@ pub struct Settings {
     pub notifications: Notifications,
     pub clipboard: Clipboard,
     pub screenshot: Screenshot,
+    pub launcher: Launcher,
 }
 
 impl Default for Appearance {
@@ -419,6 +473,7 @@ impl Default for Settings {
             notifications: Notifications::default(),
             clipboard: Clipboard::default(),
             screenshot: Screenshot::default(),
+            launcher: Launcher::default(),
         }
     }
 }
@@ -506,6 +561,17 @@ impl Settings {
         let sh = &mut self.screenshot;
         sh.save_dir = sh.save_dir.chars().filter(|c| !c.is_control()).take(400).collect::<String>().trim().to_string();
         sh.hotkey = sh.hotkey.trim().chars().take(40).collect();
+
+        let l = &mut self.launcher;
+        l.hotkey = l.hotkey.trim().chars().take(40).collect();
+        l.max_results = l.max_results.clamp(3, 12);
+        let mut seen = std::collections::BTreeSet::new();
+        l.file_folders = std::mem::take(&mut l.file_folders)
+            .into_iter()
+            .map(|f| f.chars().filter(|c| !c.is_control()).take(400).collect::<String>().trim().to_string())
+            .filter(|f| !f.is_empty() && seen.insert(f.to_lowercase()))
+            .take(20)
+            .collect();
 
         let n = &mut self.notifications;
         n.history_limit = n.history_limit.clamp(10, 500);

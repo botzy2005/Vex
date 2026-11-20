@@ -86,7 +86,25 @@ export interface Settings {
     sound: boolean;
     history: ShotHistory;
   };
+  launcher: {
+    enabled: boolean;
+    /** Global shortcut that opens the launcher (empty disables it). */
+    hotkey: string;
+    apps: boolean;
+    files: boolean;
+    commands: boolean;
+    web: boolean;
+    webEngine: WebEngine;
+    ai: boolean;
+    /** 3..=12 rows. */
+    maxResults: number;
+    rememberRecents: boolean;
+    /** Folders the file index covers; empty means the standard user folders. */
+    fileFolders: string[];
+  };
 }
+
+export type WebEngine = 'duckduckgo' | 'google' | 'bing';
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 /** RFC 7386 merge patch: `null` resets a field to its default. */
