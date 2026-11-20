@@ -82,3 +82,45 @@ input[type='password']:focus { outline: 2px solid var(--accent); outline-offset:
 .status-line[data-state='recording'] { border-left: 3px solid #e5534b; }
 .status-line[data-state='paused'] { border-left: 3px solid #d9a43b; }
 .ed-dim { color: var(--fg-dim, #888); font-size: 12.5px; }
+
+/* ---------- VEX 2.0 ---------- */
+body { -webkit-font-smoothing: antialiased; }
+.settings { grid-template-columns: 208px 1fr; }
+aside { background: var(--panel); padding: var(--sp-5) var(--sp-3); }
+aside h1 { font-size: var(--fs-lg); font-weight: var(--fw-bold); letter-spacing: 0.08em; margin: 0 var(--sp-3) var(--sp-4); color: var(--accent); }
+aside button { position: relative; padding: 8px 12px 8px 14px; border-radius: var(--r-sm); transition: background var(--d-micro) var(--ease-std), color var(--d-micro) var(--ease-std); }
+aside button[data-active='true'] { background: var(--chip); }
+aside button[data-active='true']::before { content: ''; position: absolute; left: 3px; top: 9px; bottom: 9px; width: 3px; border-radius: var(--r-pill); background: var(--accent); animation: nav-in var(--d-content) var(--ease-out) both; }
+@keyframes nav-in { from { transform: scaleY(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+main { padding: var(--sp-5) 36px 48px; }
+main > section { max-width: 760px; animation: page-in var(--d-panel) var(--ease-out) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+h2 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); letter-spacing: -0.01em; margin: 0 0 var(--sp-3); }
+h3 { font-size: var(--fs-md); font-weight: var(--fw-semi); color: var(--dim); text-transform: none; margin: var(--sp-5) 0 var(--sp-2); }
+.section-note { color: var(--dim); background: var(--chip); border-radius: var(--r-md); padding: 10px 14px; margin: 0 0 var(--sp-2); box-shadow: inset 0 0 0 1px var(--line); }
+.row { border-bottom-color: var(--line); padding: 13px var(--sp-2); margin: 0 calc(var(--sp-2) * -1); transition: background var(--d-micro) var(--ease-std); }
+.row:hover { background: rgba(255, 255, 255, 0.03); }
+:root[data-theme='light'] .row:hover { background: rgba(0, 0, 0, 0.03); }
+.row-label { font-weight: var(--fw-semi); }
+.row-hint { line-height: 1.4; }
+
+/* controls */
+.segmented { border-radius: var(--r-md); padding: 3px; box-shadow: inset 0 0 0 1px var(--line); }
+.segmented button { border-radius: var(--r-sm); padding: 5px 13px; transition: background var(--d-micro) var(--ease-std), color var(--d-micro) var(--ease-std); }
+.segmented button:hover:not([data-on='true']) { color: var(--fg); }
+.toggle { width: 42px; height: 24px; transition: background var(--d-content) var(--ease-std), border-color var(--d-content) var(--ease-std); }
+.toggle span { transition: transform var(--d-content) var(--ease-soft-spring); }
+.toggle[data-on='true'] { border-color: transparent; }
+.toggle[data-on='true'] span { transform: translateX(18px); background: var(--on-accent); }
+.slider input { accent-color: var(--accent); cursor: pointer; }
+select, input[type='text'], textarea, input[type='password'] { border-radius: var(--r-sm); transition: border-color var(--d-micro) var(--ease-std); }
+select:focus, input[type='text']:focus, textarea:focus, input[type='password']:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.hotkey, .btn, .reset { border-radius: var(--r-sm); transition: background var(--d-micro) var(--ease-std), color var(--d-micro) var(--ease-std), border-color var(--d-micro) var(--ease-std), transform var(--d-micro) var(--ease-out); }
+.btn:active:not(:disabled), .reset:active:not(:disabled) { transform: scale(0.97); }
+.reset:disabled { opacity: 0.45; cursor: default; }
+.warning { border-radius: var(--r-md); animation: page-in var(--d-content) var(--ease-out) both; }
+.status-line { border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) {
+  main > section, aside button::before, .warning { animation: none !important; }
+  .toggle span, .row, .segmented button { transition: none !important; }
+}
