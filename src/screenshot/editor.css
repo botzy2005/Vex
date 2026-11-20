@@ -40,3 +40,18 @@ body { background: var(--bg); color: var(--fg); font: var(--fs-md) var(--font); 
 /* Panels float over the canvas so opening one never moves the picture under the pointer. */
 .ed { position: relative; }
 .ed-panel { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 4; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
+
+/* ---------- VEX 2.0 ---------- */
+.ed-bar { box-shadow: var(--shadow-1); position: relative; z-index: 2; }
+.ed-btn { border-radius: var(--r-sm); box-shadow: inset 0 0 0 1px var(--line); transition: background var(--d-micro) var(--ease-std), color var(--d-micro) var(--ease-std), transform var(--d-micro) var(--ease-out); }
+.ed-btn:active:not(:disabled) { transform: scale(0.96); }
+.ed-btn:disabled { opacity: 0.4; cursor: default; }
+.ed-btn:focus-visible, .ed-swatch:focus-visible, .ed-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ed-btn[data-active='true'], .ed-btn.primary { box-shadow: none; }
+.ed-group { background: var(--bg); padding: 3px; border-radius: var(--r-md); }
+.ed-canvas { border-radius: 2px; box-shadow: var(--shadow-3); }
+.ed-panel { animation: ed-pop var(--d-content) var(--ease-out) both; }
+@keyframes ed-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ed-status { transition: color var(--d-content) var(--ease-std); }
+.ed-status[data-kind='error'] { color: var(--bad); }
+@media (prefers-reduced-motion: reduce) { .ed-panel { animation: none; } .ed-btn { transition: none; } }
