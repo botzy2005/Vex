@@ -57,5 +57,13 @@
     "images": true,
     "persist": false,
     "skipSensitive": true
+  },
+  "screenshot": {
+    "format": "png",
+    "saveDir": "",
+    "hotkey": "Ctrl+Alt+S",
+    "hotkeyMode": "region",
+    "sound": false,
+    "history": "session"
   }
 }

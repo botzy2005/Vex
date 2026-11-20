@@ -4,10 +4,11 @@ import { useBackend, useResolvedTheme, useSettings } from '../backend/hooks';
 import type { AiTestResult, AssistantState, MonitorInfo, Settings, SettingsPatch } from '../shared/types';
 import { DeveloperPage } from './DeveloperPage';
 import { ClipboardPage } from './ClipboardPage';
+import { ScreenshotPage } from './ScreenshotPage';
 import { NotificationsPage } from './NotificationsPage';
 import { CommitText, HotkeyInput, Row, Segmented, Select, Slider, Toggle } from './controls';
 
-type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'notifications' | 'clipboard' | 'developer' | 'about';
+type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'notifications' | 'clipboard' | 'screenshot' | 'developer' | 'about';
 const PAGES: Array<{ id: Page; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'island', label: 'Island' },
@@ -15,6 +16,7 @@ const PAGES: Array<{ id: Page; label: string }> = [
   { id: 'assistant', label: 'Assistant' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'clipboard', label: 'Clipboard' },
+  { id: 'screenshot', label: 'Screenshot' },
   { id: 'developer', label: 'Developer' },
   { id: 'about', label: 'About' },
 ];
@@ -63,6 +65,7 @@ export function SettingsApp() {
         {page === 'music' && <MusicPage s={settings} update={update} />}
         {page === 'assistant' && <AssistantPage s={settings} update={update} />}
         {page === 'clipboard' && <ClipboardPage s={settings} update={update} />}
+        {page === 'screenshot' && <ScreenshotPage s={settings} update={update} />}
         {page === 'notifications' && <NotificationsPage s={settings} update={update} />}
         {page === 'developer' && <DeveloperPage s={settings} />}
         {page === 'about' && <AboutPage />}

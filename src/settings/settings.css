@@ -81,3 +81,4 @@ input[type='password']:focus { outline: 2px solid var(--accent); outline-offset:
 
 .status-line[data-state='recording'] { border-left: 3px solid #e5534b; }
 .status-line[data-state='paused'] { border-left: 3px solid #d9a43b; }
+.ed-dim { color: var(--fg-dim, #888); font-size: 12.5px; }

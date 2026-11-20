@@ -1,0 +1,7 @@
+html, body, #root { margin: 0; height: 100%; width: 100%; overflow: hidden; background: transparent; user-select: none; }
+.ov { position: fixed; inset: 0; cursor: crosshair; background: rgba(0, 0, 0, 0.3); font: 13px 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif; color: #fff; touch-action: none; }
+.ov-hint { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 24, 0.85); padding: 8px 14px; border-radius: 999px; pointer-events: none; }
+/* The hole: a huge shadow darkens everything except the selection. */
+.ov-sel { position: absolute; box-sizing: border-box; border: 1.5px solid #fff; outline: 1px solid rgba(0, 0, 0, 0.5); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35); background: rgba(255, 255, 255, 0.02); pointer-events: none; }
+.ov-size { position: absolute; background: rgba(20, 20, 24, 0.9); padding: 3px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.ov[data-selecting='true'] { background: rgba(0, 0, 0, 0.01); }

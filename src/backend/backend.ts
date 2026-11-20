@@ -15,6 +15,9 @@ import type {
   NotificationsView,
   ClipboardItem,
   ClipboardStatus,
+  CaptureMode,
+  ShotSource,
+  ShotView,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -114,6 +117,31 @@ export interface Backend {
   clipboardDelete(id: number): Promise<void>;
   /** Remove entries; `keepPinned` leaves the pinned ones. */
   clipboardClear(keepPinned: boolean): Promise<void>;
+
+  /**
+   * Screenshots. Pixels are captured natively and stay on this PC. `region` opens the selection
+   * overlay and resolves; the capture then arrives through `onScreenshotCaptured`.
+   */
+  screenshotCapture(mode: CaptureMode): Promise<void>;
+  /** From the selection overlay: a drag in page pixels, measured from that overlay's top-left corner. */
+  screenshotRegionSelect(monitor: number, x0: number, y0: number, x1: number, y1: number): Promise<void>;
+  screenshotRegionCancel(): Promise<void>;
+  /** Newest first. */
+  screenshotList(): Promise<ShotView[]>;
+  /** The full-size PNG as a data URL. */
+  screenshotImage(id: number): Promise<string>;
+  screenshotDelete(id: number): Promise<void>;
+  screenshotClear(): Promise<void>;
+  screenshotCopy(source: ShotSource): Promise<void>;
+  /** Save with the default format and folder, or ask where. Resolves the saved path, or null if cancelled. */
+  screenshotSave(source: ShotSource, ask: boolean): Promise<string | null>;
+  screenshotPickFolder(): Promise<string | null>;
+  screenshotReveal(path: string): Promise<void>;
+  screenshotOpenEditor(id: number): Promise<void>;
+  onScreenshotCaptured(cb: (s: ShotView) => void): Promise<Unsub>;
+  onScreenshotError(cb: (message: string) => void): Promise<Unsub>;
+  /** The editor window was asked to open a different capture. */
+  onEditorLoad(cb: (id: number) => void): Promise<Unsub>;
 
   /** Show an assistant state on the island (used by Settings to preview the face). */
   assistantPreview(state: AssistantState): Promise<void>;

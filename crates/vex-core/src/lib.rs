@@ -12,6 +12,7 @@ pub mod media;
 pub mod notifications;
 pub mod perf;
 pub mod placement;
+pub mod screenshot;
 pub mod secrets;
 pub mod settings;
 pub mod store;

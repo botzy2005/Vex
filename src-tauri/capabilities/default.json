@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Event and invoke access for the island and settings windows.",
-  "windows": ["island", "settings"],
+  "windows": ["island", "settings", "editor", "overlay-*"],
   "permissions": ["core:default"]
 }

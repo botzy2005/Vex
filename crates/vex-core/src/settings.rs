@@ -190,6 +190,61 @@ pub struct Clipboard {
 
 pub const DEFAULT_CLIPBOARD_ITEMS: u32 = 50;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ImageFormat {
+    Png,
+    Jpeg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CaptureMode {
+    /// Drag a rectangle on the screen.
+    Region,
+    /// The whole display the mouse pointer is on.
+    Screen,
+    /// The window you are working in.
+    Window,
+}
+
+/// What VEX keeps of earlier screenshots (the latest one is always available to act on).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShotHistory {
+    /// Nothing is kept beyond the latest capture, and only in memory.
+    Off,
+    /// The last few in memory; gone when VEX closes.
+    Session,
+    /// The last few saved in VEX's data folder (not encrypted) so they survive a restart.
+    Keep,
+}
+
+/// Screenshots. Nothing is captured in the background: a capture happens only when the shortcut or a
+/// button is used, and every image stays on this PC unless you save or copy it yourself.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Screenshot {
+    pub format: ImageFormat,
+    /// Folder for saved screenshots; empty means Pictures\VEX Screenshots.
+    pub save_dir: String,
+    /// Global shortcut that takes a screenshot (empty disables it).
+    pub hotkey: String,
+    /// What the shortcut captures.
+    pub hotkey_mode: CaptureMode,
+    /// Play a short shutter sound after a capture.
+    pub sound: bool,
+    pub history: ShotHistory,
+}
+
+pub const DEFAULT_SCREENSHOT_HOTKEY: &str = "Ctrl+Alt+S";
+
+impl Default for Screenshot {
+    fn default() -> Self {
+        Self { format: ImageFormat::Png, save_dir: String::new(), hotkey: DEFAULT_SCREENSHOT_HOTKEY.into(), hotkey_mode: CaptureMode::Region, sound: false, history: ShotHistory::Session }
+    }
+}
+
 impl Default for Clipboard {
     fn default() -> Self {
         Self { enabled: false, paused: false, max_items: DEFAULT_CLIPBOARD_ITEMS, images: true, persist: false, skip_sensitive: true }
@@ -287,6 +342,7 @@ pub struct Settings {
     pub ai: Ai,
     pub notifications: Notifications,
     pub clipboard: Clipboard,
+    pub screenshot: Screenshot,
 }
 
 impl Default for Appearance {
@@ -362,6 +418,7 @@ impl Default for Settings {
             ai: Ai::default(),
             notifications: Notifications::default(),
             clipboard: Clipboard::default(),
+            screenshot: Screenshot::default(),
         }
     }
 }
@@ -445,6 +502,10 @@ impl Settings {
         ai.ollama_num_ctx = ai.ollama_num_ctx.clamp(1024, 32768);
 
         self.clipboard.max_items = self.clipboard.max_items.clamp(10, 200);
+
+        let sh = &mut self.screenshot;
+        sh.save_dir = sh.save_dir.chars().filter(|c| !c.is_control()).take(400).collect::<String>().trim().to_string();
+        sh.hotkey = sh.hotkey.trim().chars().take(40).collect();
 
         let n = &mut self.notifications;
         n.history_limit = n.history_limit.clamp(10, 500);

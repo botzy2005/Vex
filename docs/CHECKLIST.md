@@ -114,3 +114,25 @@ Needs your PC (the Windows code is only compiled by CI here, never run):
 - [ ] Copy an image (Snipping Tool, browser "Copy image"): thumbnail appears; click it and paste into Paint/Word: quality is unchanged
 - [ ] Copy a password from a password manager: it is not recorded
 - [ ] Pause, copy something, resume: the copy made while paused does not appear
+
+## Screenshot
+
+Built and tested in the sandbox (Rust core tests, vitest, Playwright against a simulated backend):
+- Geometry: mapping a drag in CSS pixels to physical pixels per monitor (mixed DPI), window-rect clipping to the desktop, exact crops, size limits (40 MP), PNG and JPEG encoding (JPEG flattens transparency onto white), file naming without overwriting, history limits (Off 1 / Session 10 / Keep 30, Keep stored on disk, leaving Keep deletes the files).
+- Editor (pixel-checked in a real browser canvas): crop, rotate both ways, resize (locked and free, bad sizes rejected), rectangle, ellipse, line, arrow, highlight, text, blur and pixelate, undo/redo, Copy and Save send the edited PNG.
+- Region overlay: live size label in physical pixels (checked at 2x), exact rectangle reported, Escape/click do not capture.
+- Island: confirmation with thumbnail and Edit / Copy / Save, auto-dismiss, error message, Screenshot tab with three capture buttons, list, quick preview, delete, clear. Settings page: format, folder, shortcut (can be turned off), shortcut mode, sound, history.
+- Screenshots never leave the PC unless you save or copy them yourself. Nothing is captured in the background.
+
+Needs your PC (the Windows capture code is only compiled by CI here, never run):
+- [ ] Select area: drag on the screen; the saved picture is exactly the dragged region, at full resolution
+- [ ] Window: the picture is the window you were using, without a shadow border gap, not VEX
+- [ ] Full screen: captures the display the pointer is on, at its real resolution
+- [ ] Two monitors with different scaling (for example 100% and 150%): each region and the full screen are sharp and correctly sized
+- [ ] The VEX island does not appear in any screenshot
+- [ ] Copy, then paste into Paint/Word/chat: image is unchanged; Save writes PNG or JPEG to the chosen folder; Save as opens the native dialog
+- [ ] The shortcut works from other apps; changing it in Settings takes effect without restarting; turning it off frees the keys
+- [ ] The capture sound plays when enabled
+- [ ] Keep history: restart VEX and the screenshots are still listed; switching to another option deletes them
+
+Known limits: a region cannot span two monitors; "full screen" is one display, not all of them; the exclusion of the island from the capture relies on a Windows feature that is untested on real hardware; kept history files are not encrypted.

@@ -26,6 +26,9 @@ import type {
   NotificationsView,
   ClipboardItem,
   ClipboardStatus,
+  CaptureMode,
+  ShotSource,
+  ShotView,
   Settings,
   SettingsPatch,
   TransportCommand,
@@ -84,6 +87,16 @@ export interface Harness {
   readonly clipboardWrites: Array<{ kind: 'text' | 'image'; text?: string; id: number }>;
   /** Make the next copy-back fail with this message. */
   failNextClipboardCopy(message: string | null): void;
+  /** Every screenshot action this page asked for, in order (for assertions). */
+  readonly screenshotCalls: Array<Record<string, unknown>>;
+  /** Simulate a finished capture (all pages see it). Returns its id. */
+  addShot(o?: { w?: number; h?: number }): number;
+  /** Make the next screenshot action fail with this message. */
+  failNextScreenshot(message: string | null): void;
+  /** What "Save" returns: a path, or null as if the user cancelled the dialog. */
+  setSavePath(path: string | null): void;
+  /** Drop every stored simulated capture (as if VEX restarted with history off). */
+  resetShots(): void;
 }
 
 declare global {
@@ -254,6 +267,76 @@ export function createTestBackend(): Backend {
     publishClip();
   };
 
+  // ---- simulated screenshots (stand-in for native capture; the real rules live in Rust)
+  // The island, the overlay, the editor and settings are separate pages here, so the "history" lives in
+  // localStorage and captures are announced over a channel (the real app has one history in Rust).
+  const SHOTS_KEY = 'vex-test-shots';
+  type SimShot = { view: ShotView; data: string };
+  const shotChannel = new BroadcastChannel('vex-test-shots');
+  const shotCapturedSubs = new Set<(s: ShotView) => void>();
+  const shotErrorSubs = new Set<(m: string) => void>();
+  const editorLoadSubs = new Set<(id: number) => void>();
+  const screenshotCalls: Array<Record<string, unknown>> = [];
+  let failShot: string | null = null;
+  let savePath: string | null = 'C:\\Users\\you\\Pictures\\VEX Screenshots\\VEX Screenshot 2026-11-18 10.00.00.png';
+  const loadShots = (): { next: number; items: SimShot[] } => {
+    try {
+      return JSON.parse(localStorage.getItem(SHOTS_KEY) ?? '') as { next: number; items: SimShot[] };
+    } catch {
+      return { next: 1, items: [] };
+    }
+  };
+  const saveShots = (v: { next: number; items: SimShot[] }) => {
+    try {
+      localStorage.setItem(SHOTS_KEY, JSON.stringify(v));
+    } catch {
+      /* ignore */
+    }
+  };
+  /** A picture with known pixels: left half red, right half blue, a black square top-left and a stripe patch top-right. */
+  const makeShot = (w: number, h: number): string => {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#ff0000';
+    g.fillRect(0, 0, w / 2, h);
+    g.fillStyle = '#0000ff';
+    g.fillRect(w / 2, 0, w / 2, h);
+    g.fillStyle = '#000000';
+    g.fillRect(0, 0, 10, 10);
+    for (let i = 0; i < 20; i++) {
+      g.fillStyle = i % 2 ? '#ffffff' : '#000000';
+      g.fillRect(w - 120 + i * 5, 20, 5, 40);
+    }
+    return c.toDataURL('image/png');
+  };
+  const thumbOf = (data: string) => data; // small test images double as their own thumbnails
+  const historyLimit = () => ({ off: 1, session: 10, keep: 30 })[settings.screenshot.history];
+  const addShot = (w: number, h: number): ShotView => {
+    const store = loadShots();
+    const data = makeShot(w, h);
+    const view: ShotView = { id: store.next, tsMs: Date.now(), width: w, height: h, bytes: data.length, thumb: thumbOf(data) };
+    const items = [...store.items, { view, data }].slice(-historyLimit());
+    saveShots({ next: store.next + 1, items });
+    shotCapturedSubs.forEach((cb) => cb(view));
+    shotChannel.postMessage({ type: 'captured', view });
+    return view;
+  };
+  shotChannel.onmessage = (e) => {
+    const d = e.data as { type: string; view?: ShotView; message?: string; id?: number };
+    if (d.type === 'captured' && d.view) shotCapturedSubs.forEach((cb) => cb(d.view!));
+    else if (d.type === 'error' && d.message) shotErrorSubs.forEach((cb) => cb(d.message!));
+    else if (d.type === 'editor-load' && d.id !== undefined) editorLoadSubs.forEach((cb) => cb(d.id!));
+  };
+  const shotFail = () => {
+    if (failShot) {
+      const m = failShot;
+      failShot = null;
+      throw new Error(m);
+    }
+  };
+
   const sub = <T,>(set: Set<(v: T) => void>, cb: (v: T) => void): Promise<Unsub> => {
     set.add(cb);
     return Promise.resolve(() => void set.delete(cb));
@@ -354,6 +437,17 @@ export function createTestBackend(): Backend {
     clipboardWrites,
     failNextClipboardCopy(m) {
       failCopy = m;
+    },
+    screenshotCalls,
+    addShot: (o) => addShot(o?.w ?? 640, o?.h ?? 400).id,
+    failNextScreenshot(m) {
+      failShot = m;
+    },
+    setSavePath(p) {
+      savePath = p;
+    },
+    resetShots() {
+      saveShots({ next: 1, items: [] });
     },
     clipboardCopyExternal(c) {
       const cfg = settings.clipboard;
@@ -623,6 +717,66 @@ export function createTestBackend(): Backend {
       clipItems = keepPinned ? clipItems.filter((i) => i.pinned) : [];
       publishClip();
     },
+
+    async screenshotCapture(mode: CaptureMode) {
+      screenshotCalls.push({ type: 'capture', mode });
+      shotFail();
+      if (mode === 'screen') addShot(960, 540);
+      else if (mode === 'window') addShot(640, 400);
+      // region: the real app opens the selection overlays; the capture arrives after the drag
+    },
+    async screenshotRegionSelect(monitor, x0, y0, x1, y1) {
+      screenshotCalls.push({ type: 'regionSelect', monitor, x0, y0, x1, y1, dpr: window.devicePixelRatio });
+      shotFail();
+      const w = Math.round(Math.abs(x1 - x0) * window.devicePixelRatio);
+      const h = Math.round(Math.abs(y1 - y0) * window.devicePixelRatio);
+      if (w < 4 || h < 4) throw new Error('The selection was too small.');
+      addShot(w, h);
+    },
+    async screenshotRegionCancel() {
+      screenshotCalls.push({ type: 'regionCancel' });
+    },
+    async screenshotList() {
+      return loadShots().items.map((i) => i.view).reverse();
+    },
+    async screenshotImage(id) {
+      const it = loadShots().items.find((i) => i.view.id === id);
+      if (!it) throw new Error('That screenshot is no longer available.');
+      return it.data;
+    },
+    async screenshotDelete(id) {
+      const st = loadShots();
+      saveShots({ ...st, items: st.items.filter((i) => i.view.id !== id) });
+      screenshotCalls.push({ type: 'delete', id });
+    },
+    async screenshotClear() {
+      const st = loadShots();
+      saveShots({ ...st, items: [] });
+      screenshotCalls.push({ type: 'clear' });
+    },
+    async screenshotCopy(source: ShotSource) {
+      screenshotCalls.push({ type: 'copy', id: source.id, bytes: source.data?.length ?? 0, dataUrl: source.data?.slice(0, 22) });
+      shotFail();
+    },
+    async screenshotSave(source: ShotSource, ask: boolean) {
+      screenshotCalls.push({ type: 'save', id: source.id, bytes: source.data?.length ?? 0, ask, data: source.data });
+      shotFail();
+      return savePath;
+    },
+    async screenshotPickFolder() {
+      screenshotCalls.push({ type: 'pickFolder' });
+      return 'D:\\Captures';
+    },
+    async screenshotReveal(path: string) {
+      screenshotCalls.push({ type: 'reveal', path });
+    },
+    async screenshotOpenEditor(id: number) {
+      screenshotCalls.push({ type: 'openEditor', id });
+      shotChannel.postMessage({ type: 'editor-load', id });
+    },
+    onScreenshotCaptured: (cb) => sub(shotCapturedSubs, cb),
+    onScreenshotError: (cb) => sub(shotErrorSubs, cb),
+    onEditorLoad: (cb) => sub(editorLoadSubs, cb),
 
     // Tauri events reach every window; BroadcastChannel stands in for that across test pages.
     assistantPreview: async (s) => {

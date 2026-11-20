@@ -1,7 +1,7 @@
 import type { AssistantState, Shape } from '../shared/types';
 
-export type Tab = 'music' | 'lyrics' | 'assistant' | 'notifications' | 'clipboard';
-export type CompactView = 'idle' | 'media' | 'lyrics' | 'assistant' | 'notification';
+export type Tab = 'music' | 'lyrics' | 'assistant' | 'notifications' | 'clipboard' | 'screenshot';
+export type CompactView = 'idle' | 'media' | 'lyrics' | 'assistant' | 'notification' | 'screenshot';
 export type View = CompactView | 'expanded';
 
 /** Transparent margin the window keeps around the island (sides and bottom). */
@@ -13,14 +13,17 @@ export interface ActivityInput {
   lyricsLineVisible: boolean;
   /** A notification just arrived and its preview is showing. */
   notification?: boolean;
+  /** A screenshot was just taken (or failed) and its confirmation is showing. */
+  screenshot?: boolean;
 }
 
 /**
- * What the collapsed island shows. Priority: an active assistant, then a notification preview
+ * What the collapsed island shows. Priority: an active assistant, then a screenshot confirmation, then a notification preview
  * (it lasts a few seconds), then lyrics, plain media and finally idle.
  */
 export function resolveCompactView(a: ActivityInput): CompactView {
   if (a.assistant !== 'idle') return 'assistant';
+  if (a.screenshot) return 'screenshot';
   if (a.notification) return 'notification';
   if (a.hasSession && a.lyricsLineVisible) return 'lyrics';
   if (a.hasSession) return 'media';
@@ -33,6 +36,7 @@ const COMPACT_SIZE: Record<CompactView, { w: number; h: number }> = {
   lyrics: { w: 400, h: 42 },
   assistant: { w: 212, h: 42 },
   notification: { w: 360, h: 50 },
+  screenshot: { w: 400, h: 52 },
 };
 
 const EXPANDED_SIZE: Record<Tab, { w: number; h: number }> = {
@@ -41,6 +45,7 @@ const EXPANDED_SIZE: Record<Tab, { w: number; h: number }> = {
   assistant: { w: 540, h: 340 },
   notifications: { w: 540, h: 320 },
   clipboard: { w: 540, h: 320 },
+  screenshot: { w: 540, h: 320 },
 };
 
 export interface LayoutInput {

@@ -16,8 +16,13 @@ pub struct RawImage {
 
 impl RawImage {
     pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Option<Self> {
+        Self::with_limit(width, height, rgba, MAX_PIXELS)
+    }
+
+    /// Like `new` with a caller-chosen pixel limit (screenshots of large displays exceed the clipboard's).
+    pub fn with_limit(width: u32, height: u32, rgba: Vec<u8>, max_pixels: usize) -> Option<Self> {
         let n = (width as usize).checked_mul(height as usize)?;
-        (width > 0 && height > 0 && n <= MAX_PIXELS && rgba.len() == n * 4).then_some(Self { width, height, rgba })
+        (width > 0 && height > 0 && n <= max_pixels && rgba.len() == n * 4).then_some(Self { width, height, rgba })
     }
 }
 
@@ -126,11 +131,15 @@ pub fn encode_png(img: &RawImage) -> Result<Vec<u8>, String> {
 }
 
 pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
+    decode_png_limit(bytes, MAX_PIXELS)
+}
+
+pub fn decode_png_limit(bytes: &[u8], max_pixels: usize) -> Result<RawImage, String> {
     let mut dec = png::Decoder::new(Cursor::new(bytes));
     dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut reader = dec.read_info().map_err(|e| e.to_string())?;
     let (iw, ih) = (reader.info().width as usize, reader.info().height as usize);
-    if iw.checked_mul(ih).is_none_or(|n| n > MAX_PIXELS) {
+    if iw.checked_mul(ih).is_none_or(|n| n > max_pixels) {
         return Err("image is too large".into());
     }
     let mut buf = vec![0u8; reader.output_buffer_size().ok_or("image is too large")?];
@@ -148,7 +157,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
             png::ColorType::Indexed => return Err("unsupported palette image".into()),
         }
     }
-    RawImage::new(w as u32, h as u32, rgba).ok_or_else(|| "invalid image".into())
+    RawImage::with_limit(w as u32, h as u32, rgba, max_pixels).ok_or_else(|| "invalid image".into())
 }
 
 /// Box-filter downscale so the longest edge is at most `edge` (never upscales).

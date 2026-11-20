@@ -14,7 +14,9 @@ import { NotificationPreview, NotificationsPanel } from '../notifications/Notifi
 import { useNotifications } from '../notifications/useNotifications';
 import { ClipboardPanel } from '../clipboard/ClipboardPanel';
 import { useClipboard } from '../clipboard/useClipboard';
-import { BellIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
+import { ScreenshotErrorToast, ScreenshotPanel, ScreenshotToast } from '../screenshot/ScreenshotPanel';
+import { useScreenshotToast } from '../screenshot/useScreenshots';
+import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { Artwork, MusicPanel } from './MusicPanel';
@@ -26,6 +28,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof MusicIcon }> = [
   { id: 'assistant', label: 'Assistant', icon: SparkIcon },
   { id: 'notifications', label: 'Notifications', icon: BellIcon },
   { id: 'clipboard', label: 'Clipboard', icon: ClipboardIcon },
+  { id: 'screenshot', label: 'Screenshot', icon: CameraIcon },
 ];
 
 const ASSISTANT_LABEL = { idle: '', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', error: 'Error' } as const;
@@ -39,10 +42,12 @@ export function IslandApp() {
   const session = media.session;
   const notif = useNotifications(true);
   const clip = useClipboard(false);
+  const shot = useScreenshotToast(settings?.screenshot);
+  const [previewId, setPreviewId] = useState<number | null>(null);
 
   const [tab, setTab] = useState<Tab>('music');
   const [inputFocused, setInputFocused] = useState(false);
-  const exp = useExpansion(settings?.island, inputFocused);
+  const exp = useExpansion(settings?.island, inputFocused, !!shot.toast);
 
   const getPos = usePlaybackPosition(session);
   const music = settings?.music;
@@ -74,6 +79,7 @@ export function IslandApp() {
     hasSession: !!session,
     lyricsLineVisible: !!music?.lyricsEnabled && !!music?.lyricsInCollapsed && lyrics.doc !== null && activeIndex >= 0,
     notification: !!notif.preview && !!settings?.notifications.enabled,
+    screenshot: !!shot.toast,
   });
   const layout = computeLayout({
     expanded: exp.expanded,
@@ -114,6 +120,11 @@ export function IslandApp() {
         onClick={() => {
           if (exp.expanded) return;
           if (layout.view === 'notification') setTab('notifications'); // a click on the preview opens the full panel
+          if (layout.view === 'screenshot') {
+            if (shot.toast?.kind === 'shot') setPreviewId(shot.toast.shot.id);
+            setTab('screenshot');
+            shot.dismiss();
+          }
           exp.expand();
         }}
       >
@@ -178,6 +189,11 @@ export function IslandApp() {
             />
           )}
 
+          {layout.view === 'screenshot' && shot.toast?.kind === 'shot' && (
+            <ScreenshotToast key={`s${shot.toast.shot.id}`} shot={shot.toast.shot} onKeep={shot.extend} onDismiss={shot.dismiss} />
+          )}
+          {layout.view === 'screenshot' && shot.toast?.kind === 'error' && <ScreenshotErrorToast message={shot.toast.message} onDismiss={shot.dismiss} />}
+
           {layout.view === 'expanded' && (
             <div className="v expanded" key="expanded" data-testid="view-expanded">
               <header className="bar-top">
@@ -231,6 +247,9 @@ export function IslandApp() {
                   </div>
                 )}
                 {tab === 'clipboard' && <ClipboardPanel enabled={settings.clipboard.enabled} onOpenSettings={() => void backend.openSettings()} />}
+                {tab === 'screenshot' && (
+                  <ScreenshotPanel hotkey={settings.screenshot.hotkey} hotkeyMode={settings.screenshot.hotkeyMode} previewId={previewId} onPreview={setPreviewId} onBeforeCapture={exp.collapse} onCaptureError={shot.fail} />
+                )}
                 {tab === 'notifications' && <NotificationsPanel view={notif.view} settings={settings.notifications} onOpenSettings={() => void backend.openSettings()} />}
                 {tab === 'assistant' && (
                   <AssistantPanel

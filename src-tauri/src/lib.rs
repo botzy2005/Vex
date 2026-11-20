@@ -8,6 +8,9 @@
 
 mod ai;
 mod clipboard;
+mod screenshot;
+#[cfg(windows)]
+mod screenshot_windows;
 #[cfg(windows)]
 mod clipboard_windows;
 mod lyrics;
@@ -38,11 +41,11 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-const ISLAND: &str = "island";
+pub(crate) const ISLAND: &str = "island";
 const SETTINGS: &str = "settings";
 
 pub struct AppState {
-    settings: Mutex<Settings>,
+    pub(crate) settings: Mutex<Settings>,
     store: SettingsStore,
     /// Logical size the UI last asked the island window to have.
     island_size: Mutex<(f64, f64)>,
@@ -108,19 +111,40 @@ fn toggle_island(app: &AppHandle) {
     let _ = app.emit("island-toggle", ());
 }
 
-/// Replace the global shortcut. Returns a warning string on failure so a bad
-/// accelerator never takes the app down.
-fn register_hotkey(app: &AppHandle, accelerator: &str) -> Option<String> {
+/// Replace the global shortcuts (island toggle and screenshot). Returns a warning for each one that
+/// could not be registered, so a bad or taken accelerator never takes the app down.
+fn register_hotkeys(app: &AppHandle, s: &Settings) -> Vec<String> {
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    let result = gs.on_shortcut(accelerator, |app, _shortcut, event| {
+    let mut warnings = Vec::new();
+    let island = s.island.hotkey.as_str();
+    if let Err(e) = gs.on_shortcut(island, |app, _shortcut, event| {
         if event.state() == ShortcutState::Pressed {
             toggle_island(app);
         }
-    });
-    result
-        .err()
-        .map(|e| format!("Could not register hotkey \"{accelerator}\": {e}"))
+    }) {
+        warnings.push(format!("Could not register hotkey \"{island}\": {e}"));
+    }
+    let shot = s.screenshot.hotkey.as_str();
+    if !shot.is_empty() {
+        if shot.eq_ignore_ascii_case(island) {
+            warnings.push("The screenshot shortcut is the same as the island shortcut; choose a different one.".into());
+        } else {
+            let mode = s.screenshot.hotkey_mode;
+            if let Err(e) = gs.on_shortcut(shot, move |app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    let app = app.clone();
+                    // Capturing waits for the compositor, so it must not run on the shortcut thread.
+                    std::thread::spawn(move || {
+                        let _ = screenshot::capture(&app, mode);
+                    });
+                }
+            }) {
+                warnings.push(format!("Could not register the screenshot shortcut \"{shot}\": {e}"));
+            }
+        }
+    }
+    warnings
 }
 
 // ---------------------------------------------------------------- commands
@@ -136,10 +160,10 @@ fn update_settings(
     state: State<AppState>,
     patch: Value,
 ) -> Result<UpdateResult, String> {
-    let (next, old_hotkey, old_notifications, old_clipboard) = {
+    let (next, old_shortcuts, old_notifications, old_clipboard, old_history) = {
         let current = state.settings.lock().unwrap();
         let next = current.with_patch(&patch).map_err(|e| e.to_string())?;
-        (next, current.island.hotkey.clone(), current.notifications.clone(), current.clipboard.clone())
+        (next, (current.island.hotkey.clone(), current.screenshot.hotkey.clone(), current.screenshot.hotkey_mode), current.notifications.clone(), current.clipboard.clone(), current.screenshot.history)
     };
 
     let mut warnings = Vec::new();
@@ -154,10 +178,11 @@ fn update_settings(
     if next.clipboard != old_clipboard {
         app.state::<clipboard::ClipboardHandle>().configure(next.clipboard.clone());
     }
-    if next.island.hotkey != old_hotkey {
-        if let Some(w) = register_hotkey(&app, &next.island.hotkey) {
-            warnings.push(w);
-        }
+    if next.screenshot.history != old_history {
+        app.state::<screenshot::Shots>().set_history_mode(next.screenshot.history);
+    }
+    if (next.island.hotkey.clone(), next.screenshot.hotkey.clone(), next.screenshot.hotkey_mode) != old_shortcuts {
+        warnings.extend(register_hotkeys(&app, &next));
     }
     apply_island_geometry(&app);
     let _ = app.emit("settings-changed", &next);
@@ -366,6 +391,7 @@ fn assistant_preview_state(app: AppHandle, state: String) -> Result<(), String> 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             let store = SettingsStore::new(dir.join("settings.json"));
@@ -373,7 +399,8 @@ pub fn run() {
             if loaded.recovered_from_corrupt {
                 eprintln!("vex: settings.json was unreadable; moved aside and defaults restored");
             }
-            let hotkey = loaded.settings.island.hotkey.clone();
+            let startup_settings = loaded.settings.clone();
+            let shot_history = loaded.settings.screenshot.history;
             let notif_cfg = loaded.settings.notifications.clone();
             let clip_cfg = loaded.settings.clipboard.clone();
             app.manage(AppState {
@@ -385,6 +412,7 @@ pub fn run() {
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
             app.manage(notifications::start(app.handle().clone(), notif_cfg));
+            app.manage(screenshot::Shots::new(shot_history, dir.join("screenshots")));
             app.manage(clipboard::start(app.handle().clone(), clip_cfg, dir.join("clipboard")));
 
             let chats = vex_core::chat::ChatStore::load(dir.join("chats.json"));
@@ -393,7 +421,7 @@ pub fn run() {
             }
             app.manage(std::sync::Arc::new(ai::AiService::production(chats)));
 
-            if let Some(w) = register_hotkey(app.handle(), &hotkey) {
+            for w in register_hotkeys(app.handle(), &startup_settings) {
                 eprintln!("vex: {w}");
             }
 
@@ -465,6 +493,18 @@ pub fn run() {
             clipboard_pin,
             clipboard_delete,
             clipboard_clear,
+            screenshot::screenshot_capture,
+            screenshot::screenshot_region_select,
+            screenshot::screenshot_region_cancel,
+            screenshot::screenshot_list,
+            screenshot::screenshot_image,
+            screenshot::screenshot_delete,
+            screenshot::screenshot_clear,
+            screenshot::screenshot_copy,
+            screenshot::screenshot_save,
+            screenshot::screenshot_pick_folder,
+            screenshot::screenshot_reveal,
+            screenshot::screenshot_open_editor,
             ai::ai_send,
             ai::ai_cancel,
             ai::ai_metrics,

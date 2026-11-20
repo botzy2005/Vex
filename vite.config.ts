@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
-// Two pages: the island overlay (index.html) and the settings window (settings.html).
+// Pages: the island overlay (index.html), the settings window (settings.html), the screenshot editor
+// (editor.html) and the region-selection overlay (overlay.html).
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
@@ -13,6 +14,8 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         settings: resolve(import.meta.dirname, 'settings.html'),
+        editor: resolve(import.meta.dirname, 'editor.html'),
+        overlay: resolve(import.meta.dirname, 'overlay.html'),
       },
     },
   },

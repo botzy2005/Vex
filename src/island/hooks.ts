@@ -191,13 +191,16 @@ export interface Expansion {
 }
 
 /** Hover-to-expand with delays, click-to-expand, pinning, and a "keep open" lock (e.g. a focused input). */
-export function useExpansion(island: Settings['island'] | undefined, locked: boolean): Expansion {
+/** `holdHover`: a confirmation with buttons is showing, so hovering must not expand the island out from under the pointer. */
+export function useExpansion(island: Settings['island'] | undefined, locked: boolean, holdHover = false): Expansion {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(false);
   const inside = useRef(false);
   const timer = useRef<number | undefined>(undefined);
   const cfg = useRef(island);
   cfg.current = island;
+  const hold = useRef(holdHover);
+  hold.current = holdHover;
 
   const clear = () => window.clearTimeout(timer.current);
 
@@ -219,7 +222,7 @@ export function useExpansion(island: Settings['island'] | undefined, locked: boo
     onPointerEnter() {
       inside.current = true;
       clear();
-      if (!expanded && cfg.current?.hoverToExpand) {
+      if (!expanded && cfg.current?.hoverToExpand && !hold.current) {
         timer.current = window.setTimeout(() => setExpanded(true), cfg.current?.hoverDelayMs ?? 120);
       }
     },

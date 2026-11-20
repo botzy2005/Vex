@@ -69,3 +69,6 @@ export const ClipboardIcon = (p: SVGProps<SVGSVGElement>) => (
 export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
 );
+export const CameraIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8.500A1.500 1.500 0 0 1 5.500 7H8l1.200-2h5.600L16 7h2.500A1.500 1.500 0 0 1 20 8.500v9a1.500 1.500 0 0 1-1.500 1.500h-13A1.500 1.500 0 0 1 4 17.500v-9Z" /><circle cx="12" cy="13" r="3.200" /></svg>
+);

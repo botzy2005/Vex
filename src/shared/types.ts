@@ -6,6 +6,9 @@ export type Shape = 'pill' | 'notch';
 export type AccentSource = 'artwork' | 'custom';
 export type LyricsStyle = 'letters' | 'line';
 export type Motion = 'off' | 'subtle' | 'normal' | 'bouncy';
+export type ImageFormat = 'png' | 'jpeg';
+export type CaptureMode = 'region' | 'screen' | 'window';
+export type ShotHistory = 'off' | 'session' | 'keep';
 export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'claude' | 'openrouter' | 'openai-compatible';
 
 export interface Settings {
@@ -72,6 +75,16 @@ export interface Settings {
     persist: boolean;
     /** Skip things that look like passwords, API keys, card numbers or private keys. */
     skipSensitive: boolean;
+  };
+  screenshot: {
+    format: ImageFormat;
+    /** Folder for saved screenshots; empty means Pictures\\VEX Screenshots. */
+    saveDir: string;
+    /** Global shortcut that takes a screenshot (empty disables it). */
+    hotkey: string;
+    hotkeyMode: CaptureMode;
+    sound: boolean;
+    history: ShotHistory;
   };
 }
 
@@ -358,3 +371,16 @@ export interface ClipboardStatus {
   note: string | null;
   persist: boolean;
 }
+
+export interface ShotView {
+  id: number;
+  tsMs: number;
+  width: number;
+  height: number;
+  bytes: number;
+  /** `data:image/png;base64,…` */
+  thumb: string;
+}
+
+/** What a screenshot action works on: a capture VEX holds, or an image the editor produced (a PNG data URL). */
+export type ShotSource = { id: number; data?: undefined } | { id?: undefined; data: string };
