@@ -14,7 +14,7 @@ use vex_core::clipboard::image::{decode_png_limit, encode_png, thumbnail, THUMB_
 use vex_core::clipboard::RawImage;
 use vex_core::screenshot::{
     crop, default_dir, encode_as, file_name, format_for_path, from_drag, monitor_at, plan_window_capture, unique_path, with_format_extension, History,
-    Rect, ShotView, Stamp, MAX_CAPTURE_PIXELS,
+    Rect, ShotView, MAX_CAPTURE_PIXELS,
 };
 use vex_core::settings::{CaptureMode, ImageFormat, ShotHistory};
 
@@ -33,8 +33,8 @@ mod platform {
     pub fn cursor_pos() -> Option<(i32, i32)> {
         None
     }
-    pub fn local_stamp() -> Stamp {
-        Stamp::from_epoch_ms_utc(super::now_ms())
+    pub fn local_stamp() -> vex_core::screenshot::Stamp {
+        vex_core::screenshot::Stamp::from_epoch_ms_utc(super::now_ms())
     }
     pub fn set_excluded(_hwnd: *mut std::ffi::c_void, _excluded: bool) -> bool {
         false

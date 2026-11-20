@@ -135,7 +135,8 @@ mod tests {
     fn default_folder_prefers_the_setting_but_only_if_absolute() {
         let pics = Some(PathBuf::from("/home/me/Pictures"));
         assert_eq!(default_dir("", pics.clone()), Some(PathBuf::from("/home/me/Pictures/VEX Screenshots")));
-        assert_eq!(default_dir("  /data/shots ", pics.clone()), Some(PathBuf::from("/data/shots")));
+        let abs = if cfg!(windows) { "C:\\data\\shots" } else { "/data/shots" };
+        assert_eq!(default_dir(&format!("  {abs} "), pics.clone()), Some(PathBuf::from(abs)));
         assert_eq!(default_dir("relative/dir", pics), None, "a relative folder would depend on the working directory");
         assert_eq!(default_dir("", None), None);
     }
