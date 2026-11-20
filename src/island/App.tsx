@@ -20,7 +20,9 @@ import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, P
 import { onAccent } from './accent';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
+import { MediaBackdrop } from './MediaBackdrop';
 import { Artwork, MusicPanel } from './MusicPanel';
+import { Transport } from './Transport';
 import { Visualizer } from './Visualizer';
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof MusicIcon }> = [
@@ -91,6 +93,7 @@ export function IslandApp() {
     cornerRadius: a?.cornerRadius ?? 26,
   });
 
+  const mediaBackdrop = exp.expanded && (tab === 'music' || tab === 'lyrics') && !!session?.artworkUrl && !!music?.artwork;
   const islandRef = useRef<HTMLDivElement>(null);
   useIslandSpring(islandRef, layout, a?.motion ?? 'normal');
   useWindowSize(backend, layout);
@@ -116,6 +119,7 @@ export function IslandApp() {
         data-pinned={exp.pinned}
         data-shape={a.shape}
         data-assistant={assistant.state}
+        data-media={mediaBackdrop}
         onPointerEnter={exp.onPointerEnter}
         onPointerLeave={exp.onPointerLeave}
         onClick={() => {
@@ -129,6 +133,7 @@ export function IslandApp() {
           exp.expand();
         }}
       >
+        {session?.artworkUrl && music.artwork && <MediaBackdrop url={session.artworkUrl} on={mediaBackdrop} />}
         <div
           className="content"
           style={{
@@ -242,8 +247,17 @@ export function IslandApp() {
               <main className="body" key={tab}>
                 {tab === 'music' && <MusicPanel session={session} music={music} getPos={getPos} peek={<LyricPeek lyrics={lyrics} activeIndex={activeIndex} getPos={getPos} music={music} playing={playing} />} />}
                 {tab === 'lyrics' && (
-                  <div className="lyrics-tab">
-                    {session && music.artwork && <Artwork session={session} className="side" />}
+                  <div className="lyrics-tab" data-testid="lyrics-tab">
+                    {session && (
+                      <header className="lyrics-head">
+                        {music.artwork && <Artwork session={session} className="side" />}
+                        <div className="lyrics-titles">
+                          <div className="title small" title={session.title}>{session.title}</div>
+                          <div className="artist small" title={session.artist}>{session.artist}</div>
+                        </div>
+                        <Transport session={session} onError={() => {}} compact />
+                      </header>
+                    )}
                     <LyricsView lyrics={lyrics} session={session} activeIndex={activeIndex} getPos={getPos} music={music} onSeek={seek} />
                   </div>
                 )}

@@ -40,8 +40,8 @@ const COMPACT_SIZE: Record<CompactView, { w: number; h: number }> = {
 };
 
 const EXPANDED_SIZE: Record<Tab, { w: number; h: number }> = {
-  music: { w: 540, h: 218 },
-  lyrics: { w: 540, h: 262 },
+  music: { w: 540, h: 246 },
+  lyrics: { w: 540, h: 274 },
   assistant: { w: 540, h: 340 },
   notifications: { w: 540, h: 320 },
   clipboard: { w: 540, h: 320 },

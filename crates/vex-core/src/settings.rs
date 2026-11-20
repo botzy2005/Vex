@@ -384,7 +384,7 @@ impl Default for Music {
             lyrics_style: LyricsStyle::Letters,
             lyrics_in_collapsed: true,
             lyrics_font: DEFAULT_LYRICS_FONT.into(),
-            lyrics_font_size: 15,
+            lyrics_font_size: 14,
             lyrics_animation_speed: 1.0,
             karaoke: true,
             lyrics_offset_ms: 0,

@@ -2,7 +2,7 @@ import { useBackend } from '../backend/hooks';
 import type { MediaSession } from '../shared/types';
 import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from './icons';
 
-export function Transport({ session, onError }: { session: MediaSession; onError(msg: string): void }) {
+export function Transport({ session, onError, compact = false }: { session: MediaSession; onError(msg: string): void; compact?: boolean }) {
   const backend = useBackend();
   const c = session.capabilities;
   const playing = session.status === 'playing';
@@ -10,7 +10,7 @@ export function Transport({ session, onError }: { session: MediaSession; onError
     backend.mediaTransport(cmd).catch((e) => onError(e instanceof Error ? e.message : String(e)));
 
   return (
-    <div className="transport" role="group" aria-label="Playback controls">
+    <div className="transport" data-compact={compact} role="group" aria-label="Playback controls">
       <button className="icon-btn" disabled={!c.previous} onClick={() => run({ type: 'previous' })} aria-label="Previous track" data-testid="btn-prev">
         <PrevIcon width={20} height={20} />
       </button>

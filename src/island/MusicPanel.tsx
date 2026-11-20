@@ -38,14 +38,9 @@ export function MusicPanel({
   }
 
   return (
-    <div className="music-panel" data-testid="music-panel">
-      {music.artwork && (
-        <div className="art-wrap">
-          {session.artworkUrl && <img className="art-glow" src={session.artworkUrl} alt="" draggable={false} aria-hidden />}
-          <Artwork session={session} className="large" />
-        </div>
-      )}
-      <div className="music-main">
+    <div className="music-panel" data-testid="music-panel" data-art={music.artwork}>
+      {music.artwork && <Artwork session={session} className="large" />}
+      <div className="music-head">
         <div className="titles">
           <div className="title-row">
             <div className="title" data-testid="track-title" title={session.title}>{session.title}</div>
@@ -53,7 +48,9 @@ export function MusicPanel({
           </div>
           <div className="artist" data-testid="track-artist" title={session.artist}>{session.artist}</div>
         </div>
-        {peek}
+        <div className="music-stage">{peek}</div>
+      </div>
+      <div className="music-foot">
         <ProgressBar session={session} getPos={getPos} onError={setError} />
         <Transport session={session} onError={setError} />
         {error && <div className="inline-error" role="alert" onAnimationEnd={() => setError(null)}>{error}</div>}

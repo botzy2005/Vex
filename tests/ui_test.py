@@ -237,7 +237,7 @@ def main():
         def peek_in_player():
             page.locator('[data-testid="tab-music"]').click(); page.wait_for_timeout(500)
             expect(page.locator('[data-testid="peek-now"]')).to_have_text("bravo line")
-            assert abs(box()["height"] - 218) < 2, box()
+            assert abs(box()["height"] - 246) < 2, box()
         check("the player shows the current lyric next to the controls", peek_in_player)
         page.locator('[data-testid="tab-lyrics"]').click(); page.wait_for_timeout(300)
 

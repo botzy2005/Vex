@@ -22,9 +22,11 @@ export function LyricPeek({
   if (!music.lyricsEnabled) return null;
   if (doc && activeIndex >= 0) {
     const l = doc.lines[activeIndex];
+    const prev = activeIndex > 0 ? doc.lines[activeIndex - 1] : undefined;
     const next = doc.lines[activeIndex + 1];
     body = (
       <>
+        <div className="peek-prev" style={{ fontFamily: music.lyricsFont }} data-testid="peek-prev">{prev ? prev.text || '♪' : '\u00a0'}</div>
         <div className="peek-now" style={{ fontFamily: music.lyricsFont }} data-testid="peek-now">
           {music.lyricsStyle === 'letters' ? (
             <LetterLine key={`p${activeIndex}`} line={l} endMs={lineEndMs(doc.lines, activeIndex)} getPos={getPos} offsetMs={music.lyricsOffsetMs} playing={playing} speed={music.lyricsAnimationSpeed} />
