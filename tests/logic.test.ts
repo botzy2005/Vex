@@ -1,3 +1,4 @@
+import { canStartAltDrag, dragOffset, pastThreshold } from '../src/island/drag';
 import { describeItem, formatBytes, sensitiveNote, statusLine } from '../src/clipboard/format';
 import { describe, expect, it } from 'vitest';
 import { parseLrc } from '../src/lyrics/lrc';
@@ -524,5 +525,29 @@ describe('onAccent', () => {
     expect(onAccent('#0a3d91')).toBe('#ffffff');
     expect(onAccent('#000000')).toBe('#ffffff');
     expect(onAccent('not a colour')).toBe('#101114');
+  });
+});
+
+describe('island drag maths', () => {
+  it('turns pointer travel into an offset', () => {
+    expect(dragOffset(0, 500, 560)).toBe(60);
+    expect(dragOffset(100, 500, 440)).toBe(40);
+    expect(dragOffset(-30, 10, 10)).toBe(-30);
+    expect(dragOffset(0, 0, 0.6)).toBe(1);
+  });
+  it('needs a few pixels of sideways travel before a press becomes a drag', () => {
+    expect(pastThreshold(100, 102)).toBe(false);
+    expect(pastThreshold(100, 96)).toBe(true);
+    expect(pastThreshold(100, 104)).toBe(true);
+    expect(pastThreshold(100, 103.9)).toBe(false);
+  });
+  it('never lets Alt+drag start inside a text field', () => {
+    // Node has no DOM, so use a minimal stand-in for Element.closest.
+    class FakeElement {}
+    (globalThis as { Element?: unknown }).Element = FakeElement;
+    const make = (matches: boolean) => Object.assign(new FakeElement(), { closest: () => (matches ? {} : null) });
+    expect(canStartAltDrag(make(true) as unknown as EventTarget)).toBe(false);
+    expect(canStartAltDrag(make(false) as unknown as EventTarget)).toBe(true);
+    expect(canStartAltDrag(null)).toBe(true);
   });
 });

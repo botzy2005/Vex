@@ -20,6 +20,7 @@ import { ScreenshotErrorToast, ScreenshotPanel, ScreenshotToast } from '../scree
 import { useScreenshotToast } from '../screenshot/useScreenshots';
 import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
 import { onAccent } from './accent';
+import { useIslandDrag } from './useIslandDrag';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { MediaBackdrop } from './MediaBackdrop';
@@ -53,7 +54,8 @@ export function IslandApp() {
 
   const [tab, setTab] = useState<Tab>('music');
   const [inputFocused, setInputFocused] = useState(false);
-  const exp = useExpansion(settings?.island, inputFocused, !!shot.toast);
+  const drag = useIslandDrag(backend, settings?.island.offsetX ?? 0);
+  const exp = useExpansion(settings?.island, inputFocused || drag.dragging, !!shot.toast);
 
   const getPos = usePlaybackPosition(session);
   const music = settings?.music;
@@ -123,6 +125,8 @@ export function IslandApp() {
         data-shape={a.shape}
         data-assistant={assistant.state}
         data-media={mediaBackdrop}
+        data-dragging={drag.dragging}
+        onPointerDown={drag.onIslandPointerDown}
         onPointerEnter={exp.onPointerEnter}
         onPointerLeave={exp.onPointerLeave}
         onClick={() => {
@@ -284,6 +288,15 @@ export function IslandApp() {
               </main>
             </div>
           )}
+          <button
+            type="button"
+            className="drag-grip"
+            data-testid="drag-grip"
+            aria-label="Move the island along the top edge (or hold Alt and drag it)"
+            title="Drag to move the island (or hold Alt and drag)"
+            tabIndex={-1}
+            onPointerDown={drag.onGripPointerDown(islandRef.current)}
+          />
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ export function createTauriBackend(): Backend {
     onSettingsChanged: (cb) => sub('settings-changed', cb),
     listMonitors: () => invoke('list_monitors'),
     setIslandSize: (width, height) => invoke('set_island_size', { width, height }),
+    setIslandOffset: (offsetX, commit) => invoke('set_island_offset', { offsetX, commit }),
     openSettings: () => invoke('open_settings'),
     quit: () => invoke('quit_app'),
     onIslandToggle: (cb) => sub<null>('island-toggle', () => cb()),

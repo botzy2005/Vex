@@ -476,3 +476,14 @@ html[data-backend='test'] body::after {
 .wt-timer-label { flex: 1; color: var(--fg); }
 .wt-timer-time { font-variant-numeric: tabular-nums; color: var(--fg-dim); }
 .wt-timer[data-state='finished'] .wt-timer-time { color: var(--accent); }
+
+/* Drag grip: a thin handle at the bottom edge, shown while the island is hovered. Alt+drag works anywhere. */
+.drag-grip {
+  position: absolute; left: 50%; bottom: 0; width: 34px; height: 9px; transform: translateX(-50%); z-index: 6;
+  display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: grab; touch-action: none;
+  opacity: 0; pointer-events: none; transition: opacity var(--d-micro) var(--ease-std);
+}
+.drag-grip::before { content: ''; width: 22px; height: 3px; border-radius: 2px; background: var(--fg-faint); transition: background var(--d-micro) var(--ease-std); }
+.island:hover .drag-grip, .island[data-dragging='true'] .drag-grip { opacity: 0.8; pointer-events: auto; }
+.drag-grip:hover::before { background: var(--fg-dim); }
+.island[data-dragging='true'], .island[data-dragging='true'] * { cursor: grabbing !important; user-select: none; }

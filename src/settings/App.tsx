@@ -94,7 +94,12 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
         <Select<number> label="Display" testId="monitor" value={i.monitorIndex} onChange={(v) => set({ monitorIndex: v })}
           options={[{ value: -1, label: 'Primary display' }, ...monitors.map((m) => ({ value: m.index, label: `${m.name} (${m.width}×${m.height} @ ${Math.round(m.scale * 100)}%)` }))]} />
       </Row>
-      <Row label="Horizontal offset" hint="Shift the island left or right of centre."><Slider label="Horizontal offset" testId="offset" min={-800} max={800} step={5} value={i.offsetX} format={(v) => `${v}px`} onChange={(v) => set({ offsetX: v })} /></Row>
+      <Row label="Position" hint="The island moves along the top edge only. Hold Alt and drag it, or use the handle that appears at its bottom edge when you hover it. Left or right of centre is shown here.">
+        <div className="inline-row">
+          <Slider label="Horizontal position" testId="offset" min={-2000} max={2000} step={5} value={Math.max(-2000, Math.min(2000, i.offsetX))} format={(v) => (v === 0 ? 'Centre' : v < 0 ? `${-v}px left` : `${v}px right`)} onChange={(v) => set({ offsetX: v })} />
+          <button className="btn" data-testid="reset-position" disabled={i.offsetX === 0} onClick={() => set({ offsetX: 0 })}>Reset position</button>
+        </div>
+      </Row>
       <Row label="Gap from top edge"><Slider label="Gap from top edge" testId="margin" min={0} max={60} step={1} value={i.marginTop} format={(v) => `${v}px`} onChange={(v) => set({ marginTop: v })} /></Row>
       <Row label="Expand on hover" hint="When off, click the island to expand it."><Toggle label="Expand on hover" testId="hover" checked={i.hoverToExpand} onChange={(v) => set({ hoverToExpand: v })} /></Row>
       <Row label="Hover delay"><Slider label="Hover delay" testId="hover-delay" min={0} max={1000} step={10} value={i.hoverDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ hoverDelayMs: v })} /></Row>

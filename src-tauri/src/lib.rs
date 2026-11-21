@@ -9,6 +9,8 @@
 mod ai;
 mod clipboard;
 mod hub;
+#[cfg(windows)]
+mod display_windows;
 mod launcher;
 #[cfg(windows)]
 mod launcher_windows;
@@ -31,11 +33,11 @@ mod notifications_windows;
 use vex_core::{
     lyrics::{LyricsResult, TrackQuery},
     media::{MediaState, TransportCommand},
-    placement::{island_rect, pick_monitor, MonitorRect},
+    placement::{clamp_offset, island_rect, pick_monitor, MonitorRect},
     Settings, SettingsStore,
 };
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -53,6 +55,9 @@ pub struct AppState {
     store: SettingsStore,
     /// Logical size the UI last asked the island window to have.
     island_size: Mutex<(f64, f64)>,
+    /// Offset (logical px) the island is being dragged to. Only while a drag is in progress; the saved
+    /// setting is written once, when the drag ends.
+    island_drag: Mutex<Option<i32>>,
 }
 
 #[derive(Serialize)]
@@ -106,7 +111,8 @@ fn apply_island_geometry(app: &AppHandle) {
     let Some((_, monitor)) = pick_monitor(&rects, primary_idx, s.island.monitor_index) else {
         return;
     };
-    let r = island_rect(&monitor, w, h, s.island.offset_x, s.island.margin_top);
+    let offset = (*state.island_drag.lock().unwrap()).unwrap_or(s.island.offset_x);
+    let r = island_rect(&monitor, w, h, offset, s.island.margin_top);
     let _ = win.set_size(PhysicalSize::new(r.width, r.height));
     let _ = win.set_position(PhysicalPosition::new(r.x, r.y));
 }
@@ -246,6 +252,34 @@ fn set_island_size(app: AppHandle, state: State<AppState>, width: f64, height: f
         *state.island_size.lock().unwrap() = (width.min(1600.0), height.min(900.0));
         apply_island_geometry(&app);
     }
+}
+
+/// Move the island along the top edge while it is dragged (`commit = false`: move only) or when the drag
+/// ends (`commit = true`: move and save). Returns the offset that was actually applied, after keeping the
+/// window inside the chosen monitor.
+#[tauri::command]
+fn set_island_offset(app: AppHandle, state: State<AppState>, offset_x: i32, commit: bool) -> i32 {
+    let (w, _) = *state.island_size.lock().unwrap();
+    let saved = state.settings.lock().unwrap().clone();
+    let (rects, primary_idx) = monitor_rects(&app);
+    let Some((_, monitor)) = pick_monitor(&rects, primary_idx, saved.island.monitor_index) else {
+        return saved.island.offset_x;
+    };
+    let offset = clamp_offset(&monitor, w, offset_x.clamp(-4000, 4000));
+    if commit {
+        *state.island_drag.lock().unwrap() = None;
+        let _ = update_settings(app.clone(), app.state::<AppState>(), json!({ "island": { "offsetX": offset } }));
+    } else {
+        *state.island_drag.lock().unwrap() = Some(offset);
+        apply_island_geometry(&app);
+    }
+    offset
+}
+
+/// Put the island back in the centre (Settings and the tray both use this).
+pub(crate) fn reset_island_position(app: &AppHandle) {
+    *app.state::<AppState>().island_drag.lock().unwrap() = None;
+    let _ = update_settings(app.clone(), app.state::<AppState>(), json!({ "island": { "offsetX": 0 } }));
 }
 
 // Must be `async`: building a window inside a synchronous command deadlocks on Windows.
@@ -432,6 +466,7 @@ pub fn run() {
                 settings: Mutex::new(loaded.settings),
                 store,
                 island_size: Mutex::new((260.0, 60.0)),
+                island_drag: Mutex::new(None),
             });
 
             app.manage(media::start(app.handle().clone()));
@@ -468,6 +503,7 @@ pub fn run() {
                 None::<&str>,
             )?;
             let widgets = MenuItem::with_id(app, "hub", "Widgets Hub", true, None::<&str>)?;
+            let reset_pos = MenuItem::with_id(app, "reset-position", "Reset island position", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit VEX", true, None::<&str>)?;
             let menu = Menu::with_items(
@@ -475,6 +511,7 @@ pub fn run() {
                 &[
                     &toggle,
                     &widgets,
+                    &reset_pos,
                     &settings,
                     &PredefinedMenuItem::separator(app)?,
                     &quit,
@@ -498,6 +535,7 @@ pub fn run() {
                             let _ = hub::open_window(&app, None);
                         });
                     }
+                    "reset-position" => reset_island_position(app),
                     "quit" => app.exit(0),
                     _ => {}
                 });
@@ -509,11 +547,24 @@ pub fn run() {
             apply_island_geometry(app.handle());
             if let Some(w) = app.get_webview_window(ISLAND) {
                 let _ = w.show();
+                // Re-place the island when the resolution, DPI, monitors or work area change (and after sleep).
+                #[cfg(windows)]
+                if let Ok(hwnd) = w.hwnd() {
+                    let handle = app.handle().clone();
+                    if !display_windows::watch(hwnd.0, move || apply_island_geometry(&handle)) {
+                        eprintln!("vex: could not watch for display changes; the island is re-placed only when its size or settings change");
+                    }
+                }
             }
             Ok(())
         })
         .on_window_event(|window, event| {
             // The Hub's widgets are gone with its window, so anything they asked the island to show goes too.
+            if window.label() == ISLAND {
+                if let tauri::WindowEvent::ScaleFactorChanged { .. } = event {
+                    apply_island_geometry(window.app_handle());
+                }
+            }
             if window.label() == hub::HUB {
                 if let tauri::WindowEvent::Destroyed = event {
                     window.state::<hub::HubHandle>().clear_statuses(window.app_handle());
@@ -525,6 +576,7 @@ pub fn run() {
             update_settings,
             list_monitors,
             set_island_size,
+            set_island_offset,
             open_settings,
             quit_app,
             media_get_state,

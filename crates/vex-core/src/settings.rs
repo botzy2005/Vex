@@ -522,7 +522,7 @@ impl Settings {
 
         let i = &mut self.island;
         i.monitor_index = i.monitor_index.clamp(-1, 16);
-        i.offset_x = i.offset_x.clamp(-2000, 2000);
+        i.offset_x = i.offset_x.clamp(-4000, 4000);
         i.margin_top = i.margin_top.clamp(0, 200);
         i.hover_delay_ms = i.hover_delay_ms.min(2000);
         i.collapse_delay_ms = i.collapse_delay_ms.min(5000);
@@ -679,7 +679,7 @@ mod tests {
         assert_eq!(s.appearance.glass_opacity, 1.0);
         assert_eq!(s.appearance.size_scale, 0.8);
         assert_eq!(s.appearance.corner_radius, 40);
-        assert_eq!(s.island.offset_x, 2000);
+        assert_eq!(s.island.offset_x, 4000);
         assert_eq!(s.island.margin_top, 0);
         assert_eq!(s.island.hover_delay_ms, 2000);
         assert_eq!(s.music.lyrics_font_size, 12);

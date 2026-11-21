@@ -121,7 +121,7 @@ mod tests {
         )
         .unwrap();
         let s = SettingsStore::new(path).load().settings;
-        assert_eq!(s.island.offset_x, 2000);
+        assert_eq!(s.island.offset_x, 4000);
         assert_eq!(s.appearance.glass_opacity, 0.4);
     }
 

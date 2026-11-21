@@ -155,3 +155,25 @@ Needs your PC (the Windows code is only compiled by CI here, never run):
 - [ ] The Hub follows the light/dark theme and accent colour from Settings
 
 Known limits: there is one real widget ("Getting started"); the six productivity widgets come in the next stages. Timers follow the system clock if you change it while one is running. There is no desktop notification or sound on timer completion yet (decided with the Pomodoro stage). The compact island does not show timers yet (stage 15).
+
+## Island positioning (desktop controls, stage 1)
+
+Built and tested in the sandbox (Rust core tests, vitest, Playwright against a simulated backend):
+- Placement maths: the furthest the island may sit from the centre, and clamping, for several monitor widths and scales (100/125/150/175/200 %), monitors at negative coordinates and an ultra-wide monitor; a clamped offset never puts the window past either edge, and clamping twice changes nothing.
+- Dragging: from the grip (shown at the island's bottom edge while hovered) or Alt+drag on the island surface. It starts only after a few pixels of sideways movement, so clicks (even Alt+clicks) still press buttons; it never starts inside a text field; the click that ends a drag is swallowed; Escape puts the island back; the island stays open during a drag; pointer movement is batched per frame; the position is saved once, on release; it persists across reloads and the next drag continues from it.
+- The grip overlaps no button, field or slider on any tab (checked on all seven tabs).
+- Settings > Island: the position readout ("Centre", "180px left"), and Reset position (also in the tray menu: "Reset island position").
+- Resolution / DPI / monitor / work-area / resume changes re-place the island (a small observer on the island window, debounced).
+
+Needs your laptop (the Windows code is only compiled by CI here, never run):
+- [ ] Hover the island: the grip appears at its bottom edge. Drag it left and right: the island follows the pointer smoothly, stays on the top edge, and stops at the screen edges
+- [ ] Hold Alt and drag the island's surface: it moves the same way. Alt+click on a button still presses it
+- [ ] Release, quit VEX from the tray and start it again: the island is where you left it
+- [ ] Settings > Island > Reset position (and tray > Reset island position) puts it back in the centre
+- [ ] Expand the island near the left or right edge: the panel stays fully on screen; collapsing returns the pill to its saved position
+- [ ] Change the display resolution or scaling (Settings > Display) with VEX running: the island stays on screen and on the top edge without restarting VEX
+- [ ] With two monitors, choose each display in Settings > Island: the island stays inside the chosen monitor, and dragging cannot leave it
+- [ ] Lock/sleep and wake the PC: the island is still on the top edge at the saved position
+- [ ] Lyrics, music controls, the assistant, the screenshot toast and the volume-free tabs all still look and animate as before while the island is off-centre
+
+Known limits: the position is stored as a distance from the screen centre in logical pixels (clamped to about 4000), so on a very wide monitor above that the outer edges cannot be reached; the island moves only on the monitor chosen in Settings (dragging to another monitor is not supported); the keyboard path for moving it is the Settings slider; the display-change observer is untested on real hardware.

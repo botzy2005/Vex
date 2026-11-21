@@ -62,6 +62,10 @@ export interface Harness {
   emitIslandToggle(): void;
   readonly transportCalls: TransportCommand[];
   readonly windowSizes: Array<[number, number]>;
+  /** Every drag move/commit the island asked for, with the offset the stand-in applied after clamping. */
+  readonly offsetCalls: Array<{ offsetX: number; commit: boolean; applied: number }>;
+  /** Width in logical px of the pretend monitor the island is clamped to (default 1920). */
+  setScreenWidth(width: number): void;
   /** Script the simulated model: reply chunks, per-chunk delay, or an error. */
   setAiScript(script: AiScript): void;
   /** Seed the simulated measurements shown on the Developer page. */
@@ -128,6 +132,8 @@ export function createTestBackend(): Backend {
 
   const calls: TransportCommand[] = [];
   const sizes: Array<[number, number]> = [];
+  const offsetCalls: Harness['offsetCalls'] = [];
+  let screenWidth = 1920;
   const aiSends: Harness['aiSends'] = [];
   let metrics: MetricsView = { requests: [], requestsSent: 0 };
   let benchRows: BenchRow[] = [];
@@ -398,6 +404,8 @@ export function createTestBackend(): Backend {
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
     transportCalls: calls,
     windowSizes: sizes,
+    offsetCalls,
+    setScreenWidth: (w) => void (screenWidth = w),
     setAiScript: (sc) => {
       script = sc;
     },
@@ -524,6 +532,15 @@ export function createTestBackend(): Backend {
       { index: 1, name: 'Test display 2', x: 1920, y: 0, width: 2560, height: 1440, scale: 1.25, primary: false },
     ],
     setIslandSize: async (w, h) => void sizes.push([w, h]),
+    setIslandOffset: async (offsetX, commit) => {
+      // Same rule as the native side: the window must stay inside the monitor.
+      const width = sizes.length ? sizes[sizes.length - 1][0] : 300;
+      const max = Math.max(0, Math.floor((screenWidth - Math.min(width, screenWidth)) / 2));
+      const applied = Math.max(-max, Math.min(max, Math.round(offsetX)));
+      offsetCalls.push({ offsetX, commit, applied });
+      if (commit) await applyPatch({ island: { offsetX: applied } } as SettingsPatch);
+      return applied;
+    },
     openSettings: async () => void opened++,
     quit: async () => {},
     onIslandToggle: (cb) => sub(toggleSubs, cb),

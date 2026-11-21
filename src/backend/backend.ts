@@ -53,6 +53,12 @@ export interface Backend {
   listMonitors(): Promise<MonitorInfo[]>;
   /** Ask the OS window to be this many logical pixels (it stays top-centred). */
   setIslandSize(width: number, height: number): Promise<void>;
+  /**
+   * Move the island along the top edge (logical px from the screen centre). `commit: false` only moves it
+   * (used while dragging); `commit: true` moves it and saves the position. Resolves with the offset that
+   * was applied after keeping the island inside its monitor.
+   */
+  setIslandOffset(offsetX: number, commit: boolean): Promise<number>;
   openSettings(): Promise<void>;
   quit(): Promise<void>;
   onIslandToggle(cb: () => void): Promise<Unsub>;
