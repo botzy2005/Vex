@@ -207,7 +207,7 @@ pub fn app_icon(app: &AppEntry) -> Option<String> {
         return None;
     }
     let img = icon_rgba(Path::new(&app.id))?;
-    let png = vex_core::clipboard::encode_png(&img).ok()?;
+    let png = vex_core::clipboard::image::encode_png(&img).ok()?;
     Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png)))
 }
 
