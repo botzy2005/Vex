@@ -14,6 +14,8 @@ export function createTauriBackend(): Backend {
     listMonitors: () => invoke('list_monitors'),
     setIslandSize: (width, height) => invoke('set_island_size', { width, height }),
     setIslandOffset: (offsetX, commit) => invoke('set_island_offset', { offsetX, commit }),
+    setIslandHidden: (hidden) => invoke('set_island_hidden', { hidden }),
+    onIslandReveal: (cb) => sub<null>('island-reveal', () => cb()),
     openSettings: () => invoke('open_settings'),
     quit: () => invoke('quit_app'),
     onIslandToggle: (cb) => sub<null>('island-toggle', () => cb()),

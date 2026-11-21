@@ -33,7 +33,8 @@ mod notifications_windows;
 use vex_core::{
     lyrics::{LyricsResult, TrackQuery},
     media::{MediaState, TransportCommand},
-    placement::{clamp_offset, island_rect, pick_monitor, MonitorRect},
+    placement::{clamp_offset, island_rect, pick_monitor, strip_rect, MonitorRect},
+    settings::Visibility,
     Settings, SettingsStore,
 };
 use serde::Serialize;
@@ -58,6 +59,9 @@ pub struct AppState {
     /// Offset (logical px) the island is being dragged to. Only while a drag is in progress; the saved
     /// setting is written once, when the drag ends.
     island_drag: Mutex<Option<i32>>,
+    /// Auto-Hide: the island is tucked away and the window is only a thin strip on the top edge.
+    /// In memory only; a restart always begins visible.
+    island_hidden: Mutex<bool>,
 }
 
 #[derive(Serialize)]
@@ -112,13 +116,42 @@ fn apply_island_geometry(app: &AppHandle) {
         return;
     };
     let offset = (*state.island_drag.lock().unwrap()).unwrap_or(s.island.offset_x);
-    let r = island_rect(&monitor, w, h, offset, s.island.margin_top);
+    let hidden = *state.island_hidden.lock().unwrap() && s.island.visibility == Visibility::Auto;
+    let r = if hidden {
+        strip_rect(&monitor, w, offset)
+    } else {
+        island_rect(&monitor, w, h, offset, s.island.margin_top)
+    };
     let _ = win.set_size(PhysicalSize::new(r.width, r.height));
     let _ = win.set_position(PhysicalPosition::new(r.x, r.y));
 }
 
+/// Bring a hidden island back (shortcut, tray "Show VEX"). The page is told even when it is already
+/// visible, so it restarts its hide timer instead of vanishing a moment later.
+pub(crate) fn reveal_island(app: &AppHandle) {
+    let was_hidden = std::mem::replace(&mut *app.state::<AppState>().island_hidden.lock().unwrap(), false);
+    if was_hidden {
+        apply_island_geometry(app);
+    }
+    let _ = app.emit("island-reveal", ());
+}
+
 fn toggle_island(app: &AppHandle) {
+    reveal_island(app);
     let _ = app.emit("island-toggle", ());
+}
+
+/// The page asks to tuck the island away (after its exit animation) or to restore it (pointer on the top-edge
+/// strip, or a screenshot confirmation). Hiding is only honoured in Auto-Hide mode. Returns whether the island is hidden now.
+#[tauri::command]
+fn set_island_hidden(app: AppHandle, state: State<AppState>, hidden: bool) -> bool {
+    let allowed = state.settings.lock().unwrap().island.visibility == Visibility::Auto;
+    let now = hidden && allowed;
+    let changed = std::mem::replace(&mut *state.island_hidden.lock().unwrap(), now) != now;
+    if changed {
+        apply_island_geometry(&app);
+    }
+    now
 }
 
 /// Replace the global shortcuts (island toggle, launcher and screenshot). Returns a warning for each one that
@@ -214,6 +247,10 @@ fn update_settings(
     }
     if (next.island.hotkey.clone(), next.screenshot.hotkey.clone(), next.screenshot.hotkey_mode, next.launcher.hotkey.clone(), next.launcher.enabled) != old_shortcuts {
         warnings.extend(register_hotkeys(&app, &next));
+    }
+    if next.island.visibility != Visibility::Auto && std::mem::replace(&mut *state.island_hidden.lock().unwrap(), false) {
+        // Switching to Always Visible while hidden brings the island back at once.
+        let _ = app.emit("island-reveal", ());
     }
     apply_island_geometry(&app);
     let _ = app.emit("settings-changed", &next);
@@ -467,6 +504,7 @@ pub fn run() {
                 store,
                 island_size: Mutex::new((260.0, 60.0)),
                 island_drag: Mutex::new(None),
+                island_hidden: Mutex::new(false),
             });
 
             app.manage(media::start(app.handle().clone()));
@@ -503,12 +541,14 @@ pub fn run() {
                 None::<&str>,
             )?;
             let widgets = MenuItem::with_id(app, "hub", "Widgets Hub", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show VEX", true, None::<&str>)?;
             let reset_pos = MenuItem::with_id(app, "reset-position", "Reset island position", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit VEX", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
                 &[
+                    &show,
                     &toggle,
                     &widgets,
                     &reset_pos,
@@ -521,6 +561,7 @@ pub fn run() {
                 .tooltip("VEX")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => reveal_island(app),
                     "toggle" => toggle_island(app),
                     "settings" => {
                         // Same Windows deadlock rule as the command: build the window off the event-handler thread.
@@ -577,6 +618,7 @@ pub fn run() {
             list_monitors,
             set_island_size,
             set_island_offset,
+            set_island_hidden,
             open_settings,
             quit_app,
             media_get_state,

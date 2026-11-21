@@ -21,6 +21,7 @@ import { useScreenshotToast } from '../screenshot/useScreenshots';
 import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
 import { onAccent } from './accent';
 import { useIslandDrag } from './useIslandDrag';
+import { useAutoHide } from './useAutoHide';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { MediaBackdrop } from './MediaBackdrop';
@@ -56,6 +57,24 @@ export function IslandApp() {
   const [inputFocused, setInputFocused] = useState(false);
   const drag = useIslandDrag(backend, settings?.island.offsetX ?? 0);
   const exp = useExpansion(settings?.island, inputFocused || drag.dragging, !!shot.toast);
+
+  const hide = useAutoHide(backend, settings?.island.autoHideDelayMs ?? 800, {
+    mode: settings?.island.visibility ?? 'always',
+    expanded: exp.expanded,
+    pinned: exp.pinned,
+    inputFocused,
+    toast: !!shot.toast,
+    dragging: drag.dragging,
+    assistantBusy: assistant.state === 'listening' || assistant.state === 'thinking' || assistant.state === 'speaking',
+  });
+  // Only these reveal a hidden island: the edge strip, the shortcut / tray "Show VEX" (island-reveal) and a
+  // screenshot confirmation. Notifications, timers and widget updates deliberately do not.
+  useSubscription<null>((cb) => backend.onIslandReveal(() => cb(null)), () => hide.reveal());
+  const shotShowing = !!shot.toast;
+  useEffect(() => {
+    if (shotShowing) hide.reveal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shotShowing]);
 
   const getPos = usePlaybackPosition(session);
   const music = settings?.music;
@@ -113,8 +132,13 @@ export function IslandApp() {
       className="stage"
       data-theme={theme}
       data-motion={a.motion}
+      data-hidden={hide.phase !== 'visible'}
+      data-hide-phase={hide.phase}
       style={{ '--accent': accent, '--on-accent': onAccent(accent), '--glass': a.glassOpacity, '--speed': music.lyricsAnimationSpeed } as CSSProperties}
     >
+      {hide.phase === 'hidden' && (
+        <div className="edge-strip" data-testid="edge-strip" aria-hidden="true" onPointerEnter={() => hide.reveal(true)} />
+      )}
       <div
         ref={islandRef}
         className="island"
@@ -127,8 +151,14 @@ export function IslandApp() {
         data-media={mediaBackdrop}
         data-dragging={drag.dragging}
         onPointerDown={drag.onIslandPointerDown}
-        onPointerEnter={exp.onPointerEnter}
-        onPointerLeave={exp.onPointerLeave}
+        onPointerEnter={() => {
+          hide.onPointerEnter();
+          exp.onPointerEnter();
+        }}
+        onPointerLeave={() => {
+          hide.onPointerLeave();
+          exp.onPointerLeave();
+        }}
         onClick={() => {
           if (exp.expanded) return;
           if (layout.view === 'notification') setTab('notifications'); // a click on the preview opens the full panel

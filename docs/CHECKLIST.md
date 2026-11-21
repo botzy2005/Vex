@@ -177,3 +177,27 @@ Needs your laptop (the Windows code is only compiled by CI here, never run):
 - [ ] Lyrics, music controls, the assistant, the screenshot toast and the volume-free tabs all still look and animate as before while the island is off-centre
 
 Known limits: the position is stored as a distance from the screen centre in logical pixels (clamped to about 4000), so on a very wide monitor above that the outer edges cannot be reached; the island moves only on the monitor chosen in Settings (dragging to another monitor is not supported); the keyboard path for moving it is the Settings slider; the display-change observer is untested on real hardware.
+
+## Auto-Hide (desktop controls, stage 2)
+
+Built and tested in the sandbox (Rust core tests, vitest, Playwright against a simulated backend):
+- Settings: Always Visible is the default; Auto-Hide with a hide delay (200 ms to 5 s, default 800 ms), persisted and clamped. Settings > Island > Visibility.
+- Rules (unit-tested): the island hides only in Auto-Hide mode and only when the pointer is off it, it is collapsed and not pinned, no text field is focused, no screenshot confirmation is showing, it is not being dragged and the assistant is not listening, thinking or speaking. After a reveal it stays at least 500 ms (no flicker).
+- Reveals: the top-edge strip, the global shortcut, tray > Show VEX, a screenshot confirmation. Notifications, timers and widget updates deliberately do not reveal it (tested).
+- Always Visible schedules no timers at all; switching to it while hidden reveals the island at once.
+- Hidden state: the island window shrinks to a 4 px strip at the top of the chosen monitor, centred on the saved position; animations are paused.
+
+Needs your laptop (Windows code is only compiled by CI here, never run):
+- [ ] Settings > Island > Visibility > Auto-hide: after the delay the island slides away, leaving nothing visible on screen
+- [ ] Move the pointer to the very top edge above where the island sits: it slides back. This is the main hardware risk: a transparent window strip might not receive the pointer. If it does not, tell me and I will add the fallback (cursor check, only while hidden)
+- [ ] Revealing does not steal focus from the app you were typing in
+- [ ] The shortcut and tray > Show VEX reveal it; a notification, a Windows toast or a timer does not
+- [ ] While hidden, a screenshot (any mode) reveals the confirmation
+- [ ] It stays while the pointer is over it, while expanded or pinned, while typing to the assistant, and while the assistant is busy
+- [ ] No flicker when brushing the top edge; always-on-top still holds over full-screen-ish windows
+- [ ] With the island moved off-centre, the strip and the reveal are at the same horizontal position
+- [ ] Two monitors: the strip is at the top of the chosen monitor only
+- [ ] Sleep/wake and a resolution change while hidden: it stays hidden and is still reachable at the top edge
+- [ ] Switching back to Always visible brings it back immediately
+
+Known limits: the reveal depends on the strip receiving the pointer on real Windows (untested); there is no cursor polling yet; with the pointer exactly on the strip but outside the island's width the strip is at least 280 px wide, so the reveal zone can be a little wider than a collapsed pill.

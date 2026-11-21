@@ -59,6 +59,13 @@ export interface Backend {
    * was applied after keeping the island inside its monitor.
    */
   setIslandOffset(offsetX: number, commit: boolean): Promise<number>;
+  /**
+   * Auto-Hide: ask the shell to shrink the island window to the thin top-edge strip (`true`) or restore it.
+   * Only honoured in Auto-Hide mode. Resolves with the state that is now in effect.
+   */
+  setIslandHidden(hidden: boolean): Promise<boolean>;
+  /** Fired when the shell reveals the island (shortcut or tray "Show VEX"). Never fired by background events. */
+  onIslandReveal(cb: () => void): Promise<Unsub>;
   openSettings(): Promise<void>;
   quit(): Promise<void>;
   onIslandToggle(cb: () => void): Promise<Unsub>;

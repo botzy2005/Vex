@@ -31,6 +31,8 @@ export interface Settings {
     hoverDelayMs: number;
     collapseDelayMs: number;
     hotkey: string;
+    visibility: 'always' | 'auto';
+    autoHideDelayMs: number;
   };
   music: {
     artwork: boolean;

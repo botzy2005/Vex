@@ -100,6 +100,13 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
           <button className="btn" data-testid="reset-position" disabled={i.offsetX === 0} onClick={() => set({ offsetX: 0 })}>Reset position</button>
         </div>
       </Row>
+      <Row label="Visibility" hint="Always visible keeps the island on screen. Auto-hide slides it away when the pointer leaves; move the pointer to the top edge of the screen, press the shortcut, or use the tray's Show VEX to bring it back. Notifications and timers never bring it back.">
+        <Segmented<'always' | 'auto'> label="Visibility" testId="visibility" value={i.visibility} onChange={(v) => set({ visibility: v })}
+          options={[{ value: 'always', label: 'Always visible' }, { value: 'auto', label: 'Auto-hide' }]} />
+      </Row>
+      {i.visibility === 'auto' && (
+        <Row label="Hide delay" hint="How long the island waits, once nothing is using it, before it hides."><Slider label="Hide delay" testId="autohide-delay" min={200} max={5000} step={100} value={i.autoHideDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ autoHideDelayMs: v })} /></Row>
+      )}
       <Row label="Gap from top edge"><Slider label="Gap from top edge" testId="margin" min={0} max={60} step={1} value={i.marginTop} format={(v) => `${v}px`} onChange={(v) => set({ marginTop: v })} /></Row>
       <Row label="Expand on hover" hint="When off, click the island to expand it."><Toggle label="Expand on hover" testId="hover" checked={i.hoverToExpand} onChange={(v) => set({ hoverToExpand: v })} /></Row>
       <Row label="Hover delay"><Slider label="Hover delay" testId="hover-delay" min={0} max={1000} step={10} value={i.hoverDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ hoverDelayMs: v })} /></Row>

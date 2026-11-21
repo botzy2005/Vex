@@ -17,7 +17,9 @@
     "hoverToExpand": true,
     "hoverDelayMs": 120,
     "collapseDelayMs": 350,
-    "hotkey": "Ctrl+Alt+I"
+    "hotkey": "Ctrl+Alt+I",
+    "visibility": "always",
+    "autoHideDelayMs": 800
   },
   "music": {
     "artwork": true,

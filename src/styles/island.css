@@ -487,3 +487,11 @@ html[data-backend='test'] body::after {
 .island:hover .drag-grip, .island[data-dragging='true'] .drag-grip { opacity: 0.8; pointer-events: auto; }
 .drag-grip:hover::before { background: var(--fg-dim); }
 .island[data-dragging='true'], .island[data-dragging='true'] * { cursor: grabbing !important; user-select: none; }
+
+/* ---------- Auto-Hide ---------- */
+/* Slide out and fade; the island is not interactive while it is leaving or gone. */
+.island { transition: opacity 220ms var(--ease-std), translate 240ms var(--ease-std); }
+.stage[data-hidden='true'] .island { opacity: 0; translate: 0 -100%; pointer-events: none; }
+.stage[data-hide-phase='hidden'] *, .stage[data-hide-phase='hidden'] *::before { animation-play-state: paused !important; }
+/* While hidden the window is only a few pixels tall; this nearly invisible layer is what receives the pointer. */
+.edge-strip { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: rgba(0, 0, 0, 0.01); cursor: default; }

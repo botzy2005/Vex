@@ -71,6 +71,19 @@ pub fn island_rect(
     }
 }
 
+/// Height (logical px) of the thin strip the hidden island leaves along the top edge of the screen.
+pub const STRIP_HEIGHT: f64 = 4.0;
+/// The strip is never narrower than this (logical px), so the top edge is easy to hit.
+pub const STRIP_MIN_WIDTH: f64 = 280.0;
+
+/// Where the window sits while the island is hidden: a thin strip on the very top edge of the monitor,
+/// centred on the island's saved position, wide enough to reach easily.
+pub fn strip_rect(monitor: &MonitorRect, logical_w: f64, offset_x: i32) -> WindowRect {
+    let w = logical_w.max(STRIP_MIN_WIDTH);
+    let offset = clamp_offset(monitor, w, offset_x);
+    island_rect(monitor, w, STRIP_HEIGHT, offset, 0)
+}
+
 fn sane_scale(monitor: &MonitorRect) -> f64 {
     if monitor.scale.is_finite() && monitor.scale > 0.0 {
         monitor.scale
@@ -215,5 +228,29 @@ mod tests {
         assert_eq!(max_offset(&m, 300.0), 2410);
         let r = island_rect(&m, 300.0, 80.0, 2410, 0);
         assert_eq!(r.x + r.width as i32, 5120);
+    }
+
+    #[test]
+    fn the_hidden_strip_hugs_the_top_edge_and_follows_the_saved_position() {
+        let m = mon(0, 0, 1920, 1080, 1.0);
+        let r = strip_rect(&m, 204.0, 0);
+        assert_eq!((r.y, r.height), (0, 4));
+        assert_eq!(r.width, 280, "never narrower than the minimum");
+        assert_eq!(r.x, 820);
+        let wide = strip_rect(&m, 568.0, 100);
+        assert_eq!((wide.width, wide.x), (568, 1920 / 2 - 284 + 100));
+        // top edge of a monitor at a negative position, and scaled
+        let r = strip_rect(&mon(-2880, -300, 2880, 1620, 1.5), 300.0, 0);
+        assert_eq!((r.y, r.height), (-300, 6));
+        assert_eq!(r.width, 450);
+    }
+
+    #[test]
+    fn the_strip_stays_on_the_monitor_when_the_saved_position_is_off_to_one_side() {
+        let m = mon(0, 0, 1920, 1080, 1.0);
+        let left = strip_rect(&m, 204.0, -4000);
+        let right = strip_rect(&m, 204.0, 4000);
+        assert_eq!(left.x, 0);
+        assert_eq!(right.x + right.width as i32, 1920);
     }
 }

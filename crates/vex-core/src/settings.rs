@@ -66,6 +66,17 @@ pub enum AiProvider {
     OpenAiCompatible,
 }
 
+/// Whether the island stays on screen or tucks away when the pointer is elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Visibility {
+    /// Always on screen (today's behaviour).
+    #[default]
+    Always,
+    /// Hides when the pointer leaves it; revealed at the top edge of the screen.
+    Auto,
+}
+
 /// How the active lyric line animates in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -107,6 +118,9 @@ pub struct Island {
     pub collapse_delay_ms: u32,
     /// Global shortcut that expands/pins or collapses the island.
     pub hotkey: String,
+    pub visibility: Visibility,
+    /// Auto-Hide only: how long the pointer must be away (and nothing in use) before the island hides.
+    pub auto_hide_delay_ms: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -424,6 +438,8 @@ impl Default for Island {
             hover_delay_ms: 120,
             collapse_delay_ms: 350,
             hotkey: DEFAULT_HOTKEY.into(),
+            visibility: Visibility::Always,
+            auto_hide_delay_ms: 800,
         }
     }
 }
@@ -526,6 +542,7 @@ impl Settings {
         i.margin_top = i.margin_top.clamp(0, 200);
         i.hover_delay_ms = i.hover_delay_ms.min(2000);
         i.collapse_delay_ms = i.collapse_delay_ms.min(5000);
+        i.auto_hide_delay_ms = i.auto_hide_delay_ms.clamp(200, 5000);
         i.hotkey = i.hotkey.trim().chars().take(40).collect();
         if i.hotkey.is_empty() {
             i.hotkey = DEFAULT_HOTKEY.into();
@@ -806,5 +823,20 @@ mod tests {
         assert_eq!(s.ai.system_prompt, "Answer like a pirate.");
         let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": ""}})).unwrap();
         assert_eq!(s.ai.system_prompt, "", "clearing it on purpose still means no system prompt");
+    }
+
+    #[test]
+    fn visibility_defaults_to_always_and_the_delay_is_bounded() {
+        let d = Settings::default();
+        assert_eq!(d.island.visibility, Visibility::Always);
+        assert_eq!(d.island.auto_hide_delay_ms, 800);
+        let s = d.with_patch(&json!({"island": {"visibility": "auto", "autoHideDelayMs": 5}})).unwrap();
+        assert_eq!((s.island.visibility, s.island.auto_hide_delay_ms), (Visibility::Auto, 200));
+        let s = s.with_patch(&json!({"island": {"autoHideDelayMs": 999999}})).unwrap();
+        assert_eq!(s.island.auto_hide_delay_ms, 5000);
+        assert!(s.with_patch(&json!({"island": {"visibility": "sometimes"}})).is_err());
+        // an old settings file without the new fields keeps today's behaviour
+        let old: Settings = serde_json::from_str(r#"{"island":{"offsetX":10}}"#).unwrap();
+        assert_eq!(old.island.visibility, Visibility::Always);
     }
 }

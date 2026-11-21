@@ -60,6 +60,10 @@ export interface Harness {
   patchSettings: (patch: SettingsPatch) => Promise<void>;
   emitAssistant(state: AssistantState): void;
   emitIslandToggle(): void;
+  /** Simulate the shell revealing the island (shortcut / tray "Show VEX"). */
+  emitIslandReveal(): void;
+  /** Every hide/show request the island made, with whether the stand-in honoured it. */
+  readonly hiddenCalls: Array<{ hidden: boolean; applied: boolean }>;
   readonly transportCalls: TransportCommand[];
   readonly windowSizes: Array<[number, number]>;
   /** Every drag move/commit the island asked for, with the offset the stand-in applied after clamping. */
@@ -128,6 +132,9 @@ export function createTestBackend(): Backend {
   const mediaSubs = new Set<(s: MediaState) => void>();
   const assistantSubs = new Set<(s: AssistantState) => void>();
   const toggleSubs = new Set<() => void>();
+  const revealSubs = new Set<() => void>();
+  const hiddenCalls: Harness['hiddenCalls'] = [];
+  let nativeHidden = false;
   let session: MediaSession | null = null;
 
   const calls: TransportCommand[] = [];
@@ -402,6 +409,11 @@ export function createTestBackend(): Backend {
     lyricsCalls,
     emitAssistant: (s) => assistantSubs.forEach((cb) => cb(s)),
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
+    emitIslandReveal: () => {
+      nativeHidden = false;
+      revealSubs.forEach((cb) => cb());
+    },
+    hiddenCalls,
     transportCalls: calls,
     windowSizes: sizes,
     offsetCalls,
@@ -516,6 +528,11 @@ export function createTestBackend(): Backend {
       /* ignore */
     }
     settingsSubs.forEach((cb) => cb(settings));
+    // Same as the native side: leaving Auto-Hide while hidden reveals the island at once.
+    if (nativeHidden && settings.island.visibility !== 'auto') {
+      nativeHidden = false;
+      revealSubs.forEach((cb) => cb());
+    }
     reconfigureN();
     reconfigureClip();
     return { settings, warnings: [] as string[] };
@@ -541,6 +558,14 @@ export function createTestBackend(): Backend {
       if (commit) await applyPatch({ island: { offsetX: applied } } as SettingsPatch);
       return applied;
     },
+    setIslandHidden: async (hidden) => {
+      // Same rule as the native side: hiding is only honoured in Auto-Hide mode.
+      const auto = settings.island.visibility === 'auto';
+      nativeHidden = hidden && auto;
+      hiddenCalls.push({ hidden, applied: nativeHidden });
+      return nativeHidden;
+    },
+    onIslandReveal: (cb) => sub(revealSubs, cb),
     openSettings: async () => void opened++,
     quit: async () => {},
     onIslandToggle: (cb) => sub(toggleSubs, cb),
