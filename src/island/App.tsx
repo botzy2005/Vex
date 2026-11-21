@@ -14,6 +14,8 @@ import { NotificationPreview, NotificationsPanel } from '../notifications/Notifi
 import { useNotifications } from '../notifications/useNotifications';
 import { ClipboardPanel } from '../clipboard/ClipboardPanel';
 import { useClipboard } from '../clipboard/useClipboard';
+import { GridIcon } from '../hub/icons';
+import { WidgetsPanel } from '../hub/WidgetsPanel';
 import { ScreenshotErrorToast, ScreenshotPanel, ScreenshotToast } from '../screenshot/ScreenshotPanel';
 import { useScreenshotToast } from '../screenshot/useScreenshots';
 import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
@@ -32,6 +34,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof MusicIcon }> = [
   { id: 'notifications', label: 'Notifications', icon: BellIcon },
   { id: 'clipboard', label: 'Clipboard', icon: ClipboardIcon },
   { id: 'screenshot', label: 'Screenshot', icon: CameraIcon },
+  { id: 'widgets', label: 'Widgets', icon: GridIcon },
 ];
 
 const ASSISTANT_LABEL = { idle: '', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', error: 'Error' } as const;
@@ -265,6 +268,7 @@ export function IslandApp() {
                 {tab === 'screenshot' && (
                   <ScreenshotPanel hotkey={settings.screenshot.hotkey} hotkeyMode={settings.screenshot.hotkeyMode} previewId={previewId} onPreview={setPreviewId} onBeforeCapture={exp.collapse} onCaptureError={shot.fail} />
                 )}
+                {tab === 'widgets' && <WidgetsPanel />}
                 {tab === 'notifications' && <NotificationsPanel view={notif.view} settings={settings.notifications} onOpenSettings={() => void backend.openSettings()} />}
                 {tab === 'assistant' && (
                   <AssistantPanel

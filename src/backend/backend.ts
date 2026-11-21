@@ -26,6 +26,12 @@ import type {
   LauncherSearchResult,
   LauncherTarget,
   LauncherView,
+  HubLayout,
+  HubStatus,
+  HubStatusEntry,
+  HubTimer,
+  TimerFinished,
+  WidgetDef,
   TransportCommand,
   UpdateResult,
 } from '../shared/types';
@@ -179,4 +185,38 @@ export interface Backend {
   onLauncherOpen(cb: () => void): Promise<Unsub>;
   onLauncherClose(cb: () => void): Promise<Unsub>;
   onLauncherIndex(cb: () => void): Promise<Unsub>;
+
+  /**
+   * Widgets Hub. Everything stays on this PC. The layout and each widget's data are saved natively
+   * (validated there); timers live in the native side so they keep running when the Hub is closed.
+   */
+  /** Open the Hub window (or focus it), optionally scrolled to one widget. */
+  hubOpen(widget?: string): Promise<void>;
+  /** The widgets this build offers. */
+  hubCatalog(): Promise<WidgetDef[]>;
+  hubLayout(): Promise<HubLayout>;
+  /** Validates and saves; resolves with the layout that was actually kept. */
+  hubSaveLayout(layout: HubLayout): Promise<HubLayout>;
+  onHubChanged(cb: (l: HubLayout) => void): Promise<Unsub>;
+  /** Which widget to scroll to when an already-open Hub is asked to show one. */
+  onHubFocus(cb: (kind: string) => void): Promise<Unsub>;
+  /** One JSON document per widget kind. `null` when nothing was saved yet. Rejects with a readable reason. */
+  hubDataGet(kind: string): Promise<unknown>;
+  hubDataSet(kind: string, value: unknown): Promise<void>;
+  /** A widget's line on the island (null clears it). */
+  hubSetStatus(kind: string, status: HubStatus | null): Promise<void>;
+  hubStatuses(): Promise<HubStatusEntry[]>;
+  onHubStatus(cb: (s: HubStatusEntry[]) => void): Promise<Unsub>;
+
+  /** Shared timers (absolute end times). All operations reject with a readable reason. */
+  timersList(): Promise<HubTimer[]>;
+  timerCreate(owner: string, label: string, durationMs: number): Promise<number>;
+  timerStart(id: number): Promise<void>;
+  timerPause(id: number): Promise<void>;
+  timerReset(id: number): Promise<void>;
+  timerDelete(id: number): Promise<void>;
+  timerSetDuration(id: number, durationMs: number): Promise<void>;
+  timerSetLabel(id: number, label: string): Promise<void>;
+  onTimers(cb: (t: HubTimer[]) => void): Promise<Unsub>;
+  onTimerFinished(cb: (f: TimerFinished) => void): Promise<Unsub>;
 }

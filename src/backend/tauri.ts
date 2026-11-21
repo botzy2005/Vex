@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { Backend } from './backend';
+import type { WidgetDef } from '../shared/types';
+import widgets from '../shared/widgets.json';
 
 export function createTauriBackend(): Backend {
   const sub = <T,>(event: string, cb: (payload: T) => void) => listen<T>(event, (e) => cb(e.payload));
@@ -81,5 +83,26 @@ export function createTauriBackend(): Backend {
     onLauncherOpen: (cb) => sub<null>('launcher-open', () => cb()),
     onLauncherClose: (cb) => sub<null>('launcher-close', () => cb()),
     onLauncherIndex: (cb) => sub<null>('launcher-index', () => cb()),
+    hubOpen: (widget) => invoke('hub_open', { widget: widget ?? null }),
+    hubCatalog: async () => widgets.widgets as WidgetDef[],
+    hubLayout: () => invoke('hub_layout'),
+    hubSaveLayout: (layout) => invoke('hub_save_layout', { layout }),
+    onHubChanged: (cb) => sub('hub-changed', cb),
+    onHubFocus: (cb) => sub('hub-focus', cb),
+    hubDataGet: (kind) => invoke('hub_data_get', { kind }),
+    hubDataSet: (kind, value) => invoke('hub_data_set', { kind, value }),
+    hubSetStatus: (kind, status) => invoke('hub_set_status', { kind, status }),
+    hubStatuses: () => invoke('hub_statuses'),
+    onHubStatus: (cb) => sub('hub-status', cb),
+    timersList: () => invoke('timers_list'),
+    timerCreate: (owner, label, durationMs) => invoke('timer_create', { owner, label, durationMs }),
+    timerStart: (id) => invoke('timer_start', { id }),
+    timerPause: (id) => invoke('timer_pause', { id }),
+    timerReset: (id) => invoke('timer_reset', { id }),
+    timerDelete: (id) => invoke('timer_delete', { id }),
+    timerSetDuration: (id, durationMs) => invoke('timer_set_duration', { id, durationMs }),
+    timerSetLabel: (id, label) => invoke('timer_set_label', { id, label }),
+    onTimers: (cb) => sub('timers-changed', cb),
+    onTimerFinished: (cb) => sub('timer-finished', cb),
   };
 }

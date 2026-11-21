@@ -136,3 +136,22 @@ Needs your PC (the Windows capture code is only compiled by CI here, never run):
 - [ ] Keep history: restart VEX and the screenshots are still listed; switching to another option deletes them
 
 Known limits: a region cannot span two monitors; "full screen" is one display, not all of them; the exclusion of the island from the capture relies on a Windows feature that is untested on real hardware; kept history files are not encrypted.
+
+## Widgets Hub (framework, stage 8)
+
+Built and tested in the sandbox (Rust core tests, vitest, Playwright against a simulated backend with probe widgets):
+- Layout: add, remove, resize (only allowed sizes), pin (max 4), reorder by dragging the handle, by Alt+arrow keys and by buttons; saved on every change, restored after a reload; an emptied dashboard stays empty; Reset layout asks first; a layout changed in another window appears at once.
+- Lifecycle: a widget's code loads only when its card first shows; widgets are told when the Hub is hidden; a widget that throws shows an error on its own card (Reload / Remove) while the others keep working; failed saves are reported.
+- Widget data: one JSON document per widget, debounced saves (one write for rapid typing), flushed when the widget goes away, 512 KB limit, unknown or path-like widget ids refused (Rust tests).
+- Shared timers (Rust engine, fake-clock tests): absolute end times, pause/resume, reset, restart while running, finished-while-closed reported once, sleep/wake jump, limits, damaged-file repair.
+- Island: a Widgets tab with pinned widgets, widget status lines and running timers; no interval runs while no timer is running.
+- Nothing from the Hub is sent anywhere or given to the AI.
+
+Needs your PC (the Windows code is only compiled by CI here, never run):
+- [ ] Tray menu > Widgets Hub opens the window; the island's Widgets tab > Open Hub opens the same window; closing it and reopening restores your layout
+- [ ] Customise: dragging a card by its handle works with the mouse on a real window (the drag does not rely on browser drag-and-drop)
+- [ ] Pinned widgets appear in the island's Widgets tab; clicking one opens (or focuses) the Hub on that widget
+- [ ] Closing the Hub leaves no extra process or noticeable CPU use (the only resident part is the timer thread, which sleeps with no running timer)
+- [ ] The Hub follows the light/dark theme and accent colour from Settings
+
+Known limits: there is one real widget ("Getting started"); the six productivity widgets come in the next stages. Timers follow the system clock if you change it while one is running. There is no desktop notification or sound on timer completion yet (decided with the Pomodoro stage). The compact island does not show timers yet (stage 15).

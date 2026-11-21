@@ -482,3 +482,55 @@ export interface LauncherAiInfo {
   ready: boolean;
   problem: string | null;
 }
+
+// ---------------------------------------------------------------- Widgets Hub
+
+/** 1x1, 2x1, 1x2 and 2x2 cells. */
+export type WidgetSize = 's' | 'm' | 't' | 'l';
+
+/** One entry of `src/shared/widgets.json` (the same file Rust embeds). */
+export interface WidgetDef {
+  id: string;
+  title: string;
+  description: string;
+  sizes: WidgetSize[];
+  defaultSize: WidgetSize;
+}
+
+export interface HubPlaced {
+  kind: string;
+  size: WidgetSize;
+  pinned: boolean;
+}
+
+/** The saved dashboard. Array order is display order; presence means visible. */
+export interface HubLayout {
+  version: number;
+  widgets: HubPlaced[];
+}
+
+export type HubTimerState =
+  | { state: 'idle' }
+  /** `endsAt` is an absolute unix time in ms. */
+  | { state: 'running'; endsAt: number }
+  | { state: 'paused'; remainingMs: number }
+  | { state: 'finished'; at: number };
+
+export type HubTimer = { id: number; owner: string; label: string; durationMs: number } & HubTimerState;
+
+export interface TimerFinished {
+  id: number;
+  owner: string;
+  label: string;
+  /** How long after its due time VEX noticed (large when the PC slept or VEX was closed). */
+  lateMs: number;
+}
+
+/** A short line a widget may ask the island to show. Held in memory only. */
+export interface HubStatus {
+  label: string;
+  detail?: string | null;
+  /** 0 ambient .. 3 urgent. */
+  priority: number;
+}
+export type HubStatusEntry = HubStatus & { kind: string };

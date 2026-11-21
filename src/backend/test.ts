@@ -35,6 +35,7 @@ import type {
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
 import { createTestLauncher, type LauncherHarness } from './test_launcher';
+import { createTestHub, type HubHarness } from './test_hub';
 
 const KEY = 'islet-test-settings';
 
@@ -100,6 +101,8 @@ export interface Harness {
   resetShots(): void;
   /** Quick Launcher stand-in (fixture apps and files, run log, scripted AI). */
   launcher: LauncherHarness;
+  /** Widgets Hub stand-in (layout, data, statuses, timers, probe widgets). */
+  hub: HubHarness;
 }
 
 declare global {
@@ -360,9 +363,11 @@ export function createTestBackend(): Backend {
   });
 
   const launcher = createTestLauncher(() => settings);
+  const hub = createTestHub();
 
   const harness: Harness = {
     launcher: launcher.harness,
+    hub: hub.harness,
     patchSettings: async () => {},
     setSession(partial) {
       if (partial === null) session = null;
@@ -790,6 +795,7 @@ export function createTestBackend(): Backend {
       channel.postMessage(s);
     },
     onAssistantState: (cb) => sub(assistantSubs, cb),
+    ...hub.api,
     ...(launcher.api as Pick<Backend, 'launcherSearch' | 'launcherRun' | 'launcherHide' | 'launcherState' | 'launcherSetPin' | 'launcherRecordSearch' | 'launcherClearHistory' | 'launcherRefresh' | 'launcherAppIcon' | 'launcherAiInfo' | 'launcherAiSend' | 'onLauncherAi' | 'onLauncherOpen' | 'onLauncherClose' | 'onLauncherIndex'>),
   };
 }

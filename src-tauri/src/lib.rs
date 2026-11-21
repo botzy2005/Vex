@@ -8,6 +8,7 @@
 
 mod ai;
 mod clipboard;
+mod hub;
 mod launcher;
 #[cfg(windows)]
 mod launcher_windows;
@@ -445,6 +446,8 @@ pub fn run() {
             }
             app.manage(std::sync::Arc::new(ai::AiService::production(chats)));
 
+            app.manage(hub::HubHandle::start(app.handle(), dir.clone()));
+
             let launcher_cfg = startup_settings.launcher.clone();
             app.manage(launcher::LauncherHandle::start(app.handle(), dir.clone(), &launcher_cfg));
             if let Err(e) = launcher::build_window(app.handle()) {
@@ -464,12 +467,14 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
+            let widgets = MenuItem::with_id(app, "hub", "Widgets Hub", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit VEX", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
                 &[
                     &toggle,
+                    &widgets,
                     &settings,
                     &PredefinedMenuItem::separator(app)?,
                     &quit,
@@ -487,6 +492,12 @@ pub fn run() {
                             let _ = open_settings_window(&app);
                         });
                     }
+                    "hub" => {
+                        let app = app.clone();
+                        std::thread::spawn(move || {
+                            let _ = hub::open_window(&app, None);
+                        });
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 });
@@ -500,6 +511,14 @@ pub fn run() {
                 let _ = w.show();
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // The Hub's widgets are gone with its window, so anything they asked the island to show goes too.
+            if window.label() == hub::HUB {
+                if let tauri::WindowEvent::Destroyed = event {
+                    window.state::<hub::HubHandle>().clear_statuses(window.app_handle());
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
@@ -551,6 +570,21 @@ pub fn run() {
             ai::chat_delete,
             ai::chat_clear_all,
             assistant_preview_state,
+            hub::hub_open,
+            hub::hub_layout,
+            hub::hub_save_layout,
+            hub::hub_data_get,
+            hub::hub_data_set,
+            hub::hub_set_status,
+            hub::hub_statuses,
+            hub::timers_list,
+            hub::timer_create,
+            hub::timer_start,
+            hub::timer_pause,
+            hub::timer_reset,
+            hub::timer_delete,
+            hub::timer_set_duration,
+            hub::timer_set_label,
             launcher::launcher_hide,
             launcher::launcher_search,
             launcher::launcher_run,

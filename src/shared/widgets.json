@@ -1,0 +1,11 @@
+{
+  "widgets": [
+    {
+      "id": "welcome",
+      "title": "Getting started",
+      "description": "A short guide to arranging your dashboard. Remove it whenever you like.",
+      "sizes": ["m", "l"],
+      "defaultSize": "m"
+    }
+  ]
+}
