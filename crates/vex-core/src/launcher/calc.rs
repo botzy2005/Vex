@@ -329,7 +329,7 @@ mod tests {
         assert!((ev("pi") - std::f64::consts::PI).abs() < 1e-12);
         assert_eq!(ev("round(2.6)"), 3.0);
         assert_eq!(ev("log(1000)"), 3.0);
-        assert!((ev("2 * pi * 3") - 18.849555921538759).abs() < 1e-9);
+        assert!((ev("2 * pi * 3") - 6.0 * std::f64::consts::PI).abs() < 1e-9);
     }
 
     #[test]

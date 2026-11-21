@@ -8,6 +8,9 @@
 
 mod ai;
 mod clipboard;
+mod launcher;
+#[cfg(windows)]
+mod launcher_windows;
 mod screenshot;
 #[cfg(windows)]
 mod screenshot_windows;
@@ -111,7 +114,7 @@ fn toggle_island(app: &AppHandle) {
     let _ = app.emit("island-toggle", ());
 }
 
-/// Replace the global shortcuts (island toggle and screenshot). Returns a warning for each one that
+/// Replace the global shortcuts (island toggle, launcher and screenshot). Returns a warning for each one that
 /// could not be registered, so a bad or taken accelerator never takes the app down.
 fn register_hotkeys(app: &AppHandle, s: &Settings) -> Vec<String> {
     let gs = app.global_shortcut();
@@ -124,6 +127,18 @@ fn register_hotkeys(app: &AppHandle, s: &Settings) -> Vec<String> {
         }
     }) {
         warnings.push(format!("Could not register hotkey \"{island}\": {e}"));
+    }
+    let launch = s.launcher.hotkey.as_str();
+    if s.launcher.enabled && !launch.is_empty() {
+        if launch.eq_ignore_ascii_case(island) || launch.eq_ignore_ascii_case(s.screenshot.hotkey.as_str()) {
+            warnings.push("The launcher shortcut is already used by another VEX shortcut; choose a different one.".into());
+        } else if let Err(e) = gs.on_shortcut(launch, |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                launcher::toggle(app);
+            }
+        }) {
+            warnings.push(format!("Could not register the launcher shortcut \"{launch}\": {e}. Another app may be using it; pick a different shortcut in Settings > Launcher."));
+        }
     }
     let shot = s.screenshot.hotkey.as_str();
     if !shot.is_empty() {
@@ -160,10 +175,10 @@ fn update_settings(
     state: State<AppState>,
     patch: Value,
 ) -> Result<UpdateResult, String> {
-    let (next, old_shortcuts, old_notifications, old_clipboard, old_history) = {
+    let (next, old_shortcuts, old_notifications, old_clipboard, old_history, old_launcher) = {
         let current = state.settings.lock().unwrap();
         let next = current.with_patch(&patch).map_err(|e| e.to_string())?;
-        (next, (current.island.hotkey.clone(), current.screenshot.hotkey.clone(), current.screenshot.hotkey_mode), current.notifications.clone(), current.clipboard.clone(), current.screenshot.history)
+        (next, (current.island.hotkey.clone(), current.screenshot.hotkey.clone(), current.screenshot.hotkey_mode, current.launcher.hotkey.clone(), current.launcher.enabled), current.notifications.clone(), current.clipboard.clone(), current.screenshot.history, current.launcher.clone())
     };
 
     let mut warnings = Vec::new();
@@ -181,7 +196,16 @@ fn update_settings(
     if next.screenshot.history != old_history {
         app.state::<screenshot::Shots>().set_history_mode(next.screenshot.history);
     }
-    if (next.island.hotkey.clone(), next.screenshot.hotkey.clone(), next.screenshot.hotkey_mode) != old_shortcuts {
+    if next.launcher != old_launcher {
+        let handle = app.state::<launcher::LauncherHandle>();
+        if next.launcher.apps && !old_launcher.apps {
+            handle.refresh_apps(&app);
+        }
+        if next.launcher.files && (!old_launcher.files || next.launcher.file_folders != old_launcher.file_folders) {
+            handle.refresh_files(&app, &next.launcher);
+        }
+    }
+    if (next.island.hotkey.clone(), next.screenshot.hotkey.clone(), next.screenshot.hotkey_mode, next.launcher.hotkey.clone(), next.launcher.enabled) != old_shortcuts {
         warnings.extend(register_hotkeys(&app, &next));
     }
     apply_island_geometry(&app);
@@ -229,7 +253,7 @@ async fn open_settings(app: AppHandle) -> Result<(), String> {
     open_settings_window(&app).map_err(|e| e.to_string())
 }
 
-fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
+pub(crate) fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = app.get_webview_window(SETTINGS) {
         w.show()?;
         w.unminimize()?;
@@ -421,6 +445,12 @@ pub fn run() {
             }
             app.manage(std::sync::Arc::new(ai::AiService::production(chats)));
 
+            let launcher_cfg = startup_settings.launcher.clone();
+            app.manage(launcher::LauncherHandle::start(app.handle(), dir.clone(), &launcher_cfg));
+            if let Err(e) = launcher::build_window(app.handle()) {
+                eprintln!("vex: could not create the launcher window: {e}");
+            }
+
             for w in register_hotkeys(app.handle(), &startup_settings) {
                 eprintln!("vex: {w}");
             }
@@ -521,6 +551,17 @@ pub fn run() {
             ai::chat_delete,
             ai::chat_clear_all,
             assistant_preview_state,
+            launcher::launcher_hide,
+            launcher::launcher_search,
+            launcher::launcher_run,
+            launcher::launcher_state,
+            launcher::launcher_set_pin,
+            launcher::launcher_record_search,
+            launcher::launcher_clear_history,
+            launcher::launcher_refresh,
+            launcher::launcher_app_icon,
+            ai::launcher_ai_info,
+            ai::launcher_ai_send,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VEX");

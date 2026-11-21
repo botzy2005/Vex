@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Event and invoke access for the island and settings windows.","local":true,"windows":["island","settings","editor","overlay-*"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Event and invoke access for the island, settings, editor and launcher windows.","local":true,"windows":["island","settings","editor","launcher","overlay-*"],"permissions":["core:default"]}}

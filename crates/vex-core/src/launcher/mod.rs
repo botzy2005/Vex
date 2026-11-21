@@ -13,6 +13,7 @@ pub mod calc;
 pub mod commands;
 pub mod files;
 pub mod rank;
+pub mod search;
 pub mod store;
 
 use serde::{Deserialize, Serialize};

@@ -402,3 +402,83 @@ export interface ShotView {
 
 /** What a screenshot action works on: a capture VEX holds, or an image the editor produced (a PNG data URL). */
 export type ShotSource = { id: number; data?: undefined } | { id?: undefined; data: string };
+
+// ---- Quick Launcher
+
+export type LauncherAiKind = 'ask' | 'explain' | 'summarize' | 'rewrite' | 'translate';
+export type LauncherFolder = 'downloads' | 'documents' | 'desktop' | 'pictures' | 'videos' | 'music';
+
+/** What a command row does. Mirrors vex_core::launcher::commands::Action. */
+export type LauncherAction =
+  | { type: 'calc'; expression: string; result: string }
+  | { type: 'time' }
+  | { type: 'date' }
+  | { type: 'openFolder'; folder: LauncherFolder }
+  | { type: 'openVexSettings' }
+  | { type: 'openWindowsSettings' }
+  | { type: 'webSearch'; query: string }
+  | { type: 'timer'; seconds: number; label: string }
+  | { type: 'note'; text: string }
+  | { type: 'ai'; kind: LauncherAiKind; text: string; language: string | null }
+  | { type: 'fill'; text: string }
+  | { type: 'invalid' };
+
+export type LauncherTarget =
+  | { type: 'app'; id: string }
+  | { type: 'file'; path: string }
+  | { type: 'command'; action: LauncherAction };
+
+export type LauncherCategory = 'app' | 'file' | 'folder' | 'command' | 'web' | 'ai';
+export type LauncherFileKind = 'folder' | 'document' | 'image' | 'video' | 'audio' | 'archive' | 'code' | 'other';
+
+export interface LauncherRow {
+  key: string;
+  section: 'Pinned' | 'Recent' | 'Applications' | 'Commands' | 'Files' | 'Folders' | 'Web' | 'AI';
+  category: LauncherCategory;
+  title: string;
+  subtitle: string;
+  target: LauncherTarget;
+  available: boolean;
+  reason: string | null;
+  pinned: boolean;
+  appKind: 'desktop' | 'store' | null;
+  fileKind: LauncherFileKind | null;
+}
+
+export interface LauncherSearchResult {
+  rows: LauncherRow[];
+  /** First-time app discovery has not finished. */
+  appsLoading: boolean;
+  /** The file index has not been built yet. */
+  filesLoading: boolean;
+}
+
+export interface LauncherRunOutcome {
+  message: string | null;
+}
+
+export interface LauncherPin {
+  id: string;
+  name: string;
+  kind: 'desktop' | 'store';
+}
+
+export interface LauncherView {
+  pins: LauncherPin[];
+  recents: Array<LauncherPin & { at: number }>;
+  history: string[];
+  appsCount: number;
+  appsUpdated: number | null;
+  filesCount: number;
+  filesUpdated: number | null;
+  filesTruncated: boolean;
+  filesUnreadable: number;
+  refreshing: boolean;
+}
+
+export interface LauncherAiInfo {
+  provider: string;
+  model: string;
+  ready: boolean;
+  problem: string | null;
+}

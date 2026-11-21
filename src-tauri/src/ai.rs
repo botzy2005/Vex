@@ -1325,3 +1325,72 @@ mod tests {
         assert!(v_total < d_total + 150, "VEX added {} ms overall", v_total as i64 - d_total as i64);
     }
 }
+
+// ---------------------------------------------------------------- Quick Launcher (one-shot requests)
+
+/// Provider and model the launcher's AI commands would use, and whether they are ready.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherAiInfo {
+    pub provider: String,
+    pub model: String,
+    pub ready: bool,
+    /// What is missing, in words the user can act on.
+    pub problem: Option<String>,
+}
+
+#[tauri::command]
+pub fn launcher_ai_info(app: AppHandle, service: State<Arc<AiService>>) -> Result<LauncherAiInfo, String> {
+    let cfg = settings_ai(&app)?;
+    let provider = cfg.provider;
+    let model = cfg.model_for(provider).unwrap_or("").to_string();
+    let problem = if model.is_empty() {
+        Some("No model is chosen. Pick one in Settings > Assistant.".to_string())
+    } else if ai::key_required(provider) && !service.key_status(provider).unwrap_or(false) {
+        Some(format!("No API key is saved for {}. Add one in Settings > Assistant.", ai::display_name(provider)))
+    } else {
+        None
+    };
+    Ok(LauncherAiInfo { provider: ai::display_name(provider).to_string(), model, ready: problem.is_none(), problem })
+}
+
+/// Send one launcher AI command. Reuses the assistant's provider code, credentials and settings. The
+/// answer streams through `launcher-ai-event` (not the assistant's event), and the temporary
+/// conversation is deleted when the answer ends, so launcher questions never appear in chat history.
+#[tauri::command]
+pub async fn launcher_ai_send(
+    app: AppHandle,
+    service: State<'_, Arc<AiService>>,
+    kind: vex_core::launcher::commands::AiKind,
+    text: String,
+    language: Option<String>,
+) -> Result<u64, String> {
+    let launcher_ai_on = app.state::<crate::AppState>().settings.lock().map_err(|_| "settings unavailable")?.launcher.ai;
+    if !launcher_ai_on {
+        return Err("AI commands are switched off in Launcher settings.".into());
+    }
+    let text = text.trim();
+    if text.is_empty() || text.chars().count() > vex_core::launcher::commands::MAX_TEXT_CHARS {
+        return Err("The text is empty or too long.".into());
+    }
+    let prompt = vex_core::launcher::commands::ai_prompt(kind, text, language.as_deref());
+    let cfg = settings_ai(&app)?;
+    let svc = service.inner().clone();
+    let prep = svc.prepare(&cfg, None, &prompt, None)?;
+    let (request_id, conversation_id) = (prep.request_id, prep.conversation_id.clone());
+    let worker = svc.clone();
+    let worker_conversation = conversation_id.clone();
+    let spawned = std::thread::Builder::new().name("vex-launcher-ai".into()).spawn(move || {
+        worker.execute(prep, &mut |ev| {
+            let _ = app.emit("launcher-ai-event", ev);
+        });
+        let _ = worker.chat_delete(&worker_conversation);
+    });
+    if let Err(e) = spawned {
+        svc.cancel();
+        svc.release_active();
+        let _ = svc.chat_delete(&conversation_id);
+        return Err(format!("Couldn't start the request: {e}"));
+    }
+    Ok(request_id)
+}

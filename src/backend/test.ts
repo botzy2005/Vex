@@ -34,6 +34,7 @@ import type {
   TransportCommand,
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
+import { createTestLauncher, type LauncherHarness } from './test_launcher';
 
 const KEY = 'islet-test-settings';
 
@@ -97,6 +98,8 @@ export interface Harness {
   setSavePath(path: string | null): void;
   /** Drop every stored simulated capture (as if VEX restarted with history off). */
   resetShots(): void;
+  /** Quick Launcher stand-in (fixture apps and files, run log, scripted AI). */
+  launcher: LauncherHarness;
 }
 
 declare global {
@@ -356,7 +359,10 @@ export function createTestBackend(): Backend {
     }
   });
 
+  const launcher = createTestLauncher(() => settings);
+
   const harness: Harness = {
+    launcher: launcher.harness,
     patchSettings: async () => {},
     setSession(partial) {
       if (partial === null) session = null;
@@ -784,5 +790,6 @@ export function createTestBackend(): Backend {
       channel.postMessage(s);
     },
     onAssistantState: (cb) => sub(assistantSubs, cb),
+    ...(launcher.api as Pick<Backend, 'launcherSearch' | 'launcherRun' | 'launcherHide' | 'launcherState' | 'launcherSetPin' | 'launcherRecordSearch' | 'launcherClearHistory' | 'launcherRefresh' | 'launcherAppIcon' | 'launcherAiInfo' | 'launcherAiSend' | 'onLauncherAi' | 'onLauncherOpen' | 'onLauncherClose' | 'onLauncherIndex'>),
   };
 }

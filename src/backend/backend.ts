@@ -20,6 +20,12 @@ import type {
   ShotView,
   Settings,
   SettingsPatch,
+  LauncherAiInfo,
+  LauncherAiKind,
+  LauncherRunOutcome,
+  LauncherSearchResult,
+  LauncherTarget,
+  LauncherView,
   TransportCommand,
   UpdateResult,
 } from '../shared/types';
@@ -146,4 +152,31 @@ export interface Backend {
   /** Show an assistant state on the island (used by Settings to preview the face). */
   assistantPreview(state: AssistantState): Promise<void>;
   onAssistantState(cb: (s: AssistantState) => void): Promise<Unsub>;
+
+  /**
+   * Quick Launcher. Searching only reads caches in the native side (never the disk), so it is safe to
+   * call on every debounced keystroke. Nothing typed here leaves the PC except through an explicit
+   * web search or AI command.
+   */
+  launcherSearch(query: string): Promise<LauncherSearchResult>;
+  /** Run a row. `input` is the text that produced it; the native side re-checks the pair. Rejects with a readable reason. */
+  launcherRun(input: string, target: LauncherTarget, reveal?: boolean): Promise<LauncherRunOutcome>;
+  launcherHide(): Promise<void>;
+  launcherState(): Promise<LauncherView>;
+  launcherSetPin(id: string, pinned: boolean): Promise<void>;
+  launcherRecordSearch(text: string): Promise<void>;
+  /** Forget recent launches and search history (pins stay). */
+  launcherClearHistory(): Promise<void>;
+  /** Re-scan apps and files in the background. */
+  launcherRefresh(): Promise<void>;
+  /** Small PNG data URL, or null (the page shows a lettered tile). */
+  launcherAppIcon(id: string): Promise<string | null>;
+  launcherAiInfo(): Promise<LauncherAiInfo>;
+  /** Ask the configured provider once. The answer streams through `onLauncherAi`. */
+  launcherAiSend(kind: LauncherAiKind, text: string, language: string | null): Promise<number>;
+  onLauncherAi(cb: (e: AiEvent) => void): Promise<Unsub>;
+  /** Native window events: shown, asked to close (shortcut pressed again), index refreshed. */
+  onLauncherOpen(cb: () => void): Promise<Unsub>;
+  onLauncherClose(cb: () => void): Promise<Unsub>;
+  onLauncherIndex(cb: () => void): Promise<Unsub>;
 }
