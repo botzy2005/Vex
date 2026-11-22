@@ -34,6 +34,7 @@ import type {
   WidgetDef,
   TransportCommand,
   UpdateResult,
+  VolumeState,
 } from '../shared/types';
 
 export type Unsub = () => void;
@@ -75,6 +76,15 @@ export interface Backend {
   onMedia(cb: (s: MediaState) => void): Promise<Unsub>;
   /** Rejects when the command is unsupported or no backend exists. */
   mediaTransport(cmd: TransportCommand): Promise<void>;
+
+  /** Windows master volume (default playback device). Every call resolves with the state now in effect. */
+  volumeGet(): Promise<VolumeState>;
+  volumeSet(percent: number): Promise<VolumeState>;
+  /** One step up (`1`) or down (`-1`); the size of a step is `island.volumeStep` in Settings. */
+  volumeStep(direction: 1 | -1): Promise<VolumeState>;
+  volumeToggleMute(): Promise<VolumeState>;
+  /** Pushed when the volume changes for any reason (keys, other apps, device change). */
+  onVolume(cb: (s: VolumeState) => void): Promise<Unsub>;
 
   /**
    * Automatic synced-lyrics lookup (LRCLIB, done natively). Resolves null when

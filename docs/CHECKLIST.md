@@ -201,3 +201,23 @@ Needs your laptop (Windows code is only compiled by CI here, never run):
 - [ ] Switching back to Always visible brings it back immediately
 
 Known limits: the reveal depends on the strip receiving the pointer on real Windows (untested); there is no cursor polling yet; with the pointer exactly on the strip but outside the island's width the strip is at least 280 px wide, so the reveal zone can be a little wider than a collapsed pill.
+
+## Windows volume (desktop controls, stage 3)
+
+Built and tested in the sandbox (Rust core tests, vitest, Playwright against a simulated backend):
+- Rules (Rust and TypeScript, same cases): level rounding to whole percent (including NaN and out-of-range values from a driver), clamping before anything reaches Windows, stepping that stops at 0 and 100 with a bounded step, raising the level unmutes but 0 does not, icon level for muted/low/medium/high.
+- Settings: `island.volumeButton` (default on) and `island.volumeStep` (default 5, range 1-20), persisted and clamped. The Settings screen for them arrives in stage 4.
+- Island: a speaker button in the expanded island only (never in the collapsed pill), opening a compact panel with a slider, percentage, minus, plus and mute. Slider traffic is throttled to about 30 per second and always ends on the final value; echoes are ignored while dragging; external changes arrive as events; no device disables the controls with a message and recovers; a failed call shows a message and keeps the level. The panel closes when the island collapses. Nothing is requested from Windows until the island is expanded with the button on.
+- Native: Core Audio (`IAudioEndpointVolume`, event callbacks, device-change notifications) on one dedicated thread, started on first use, no polling, no PowerShell, no key simulation, no new crates.
+
+Needs your laptop (the Core Audio code is only compiled by CI here, never run):
+- [ ] Expand the island: the speaker button is next to Pin. Click it: the panel shows the same level as the Windows volume flyout
+- [ ] Drag the slider: the Windows volume follows smoothly; the flyout shows the same number
+- [ ] Plus/minus change by the step; mute/unmute match the Windows mute state; raising the level while muted unmutes
+- [ ] Press the keyboard volume keys (or change it in Windows Settings or another app) with the panel open: the slider and percentage update by themselves
+- [ ] Switch the default output (speakers, headphones, Bluetooth), unplug headphones, or disable the device: the panel re-binds, shows "No audio output device" when there is none, and recovers when one returns
+- [ ] The icon on the button changes for muted / low / medium / high
+- [ ] The panel does not keep the island open after you move away; Auto-Hide still works with it closed
+- [ ] The panel looks right in light theme and with the Appearance presets
+
+Known limits: master volume of the default playback device only (no per-app volume, no device switching); the device's name is not shown; the Core Audio code has not run on real hardware.

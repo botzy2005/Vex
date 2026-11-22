@@ -18,10 +18,13 @@ import { GridIcon } from '../hub/icons';
 import { WidgetsPanel } from '../hub/WidgetsPanel';
 import { ScreenshotErrorToast, ScreenshotPanel, ScreenshotToast } from '../screenshot/ScreenshotPanel';
 import { useScreenshotToast } from '../screenshot/useScreenshots';
-import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon } from './icons';
+import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon, VolumeIcon } from './icons';
 import { onAccent } from './accent';
 import { useIslandDrag } from './useIslandDrag';
 import { useAutoHide } from './useAutoHide';
+import { useVolume } from './useVolume';
+import { VolumePopover } from './VolumePopover';
+import { volumeLevel } from './volume';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { MediaBackdrop } from './MediaBackdrop';
@@ -56,13 +59,20 @@ export function IslandApp() {
   const [tab, setTab] = useState<Tab>('music');
   const [inputFocused, setInputFocused] = useState(false);
   const drag = useIslandDrag(backend, settings?.island.offsetX ?? 0);
+  const [volumeOpen, setVolumeOpen] = useState(false);
   const exp = useExpansion(settings?.island, inputFocused || drag.dragging, !!shot.toast);
+  const volumeOn = !!settings?.island.volumeButton;
+  const volume = useVolume(backend, volumeOn && exp.expanded);
+  // The panel belongs to the expanded island: it closes with it, and when the button is switched off.
+  useEffect(() => {
+    if (!exp.expanded || !volumeOn) setVolumeOpen(false);
+  }, [exp.expanded, volumeOn]);
 
   const hide = useAutoHide(backend, settings?.island.autoHideDelayMs ?? 800, {
     mode: settings?.island.visibility ?? 'always',
     expanded: exp.expanded,
     pinned: exp.pinned,
-    inputFocused,
+    inputFocused: inputFocused || volumeOpen,
     toast: !!shot.toast,
     dragging: drag.dragging,
     assistantBusy: assistant.state === 'listening' || assistant.state === 'thinking' || assistant.state === 'speaking',
@@ -262,6 +272,19 @@ export function IslandApp() {
                   ))}
                 </nav>
                 <div className="tools">
+                  {volumeOn && (
+                    <button
+                      className="icon-btn small"
+                      aria-label="Volume"
+                      aria-expanded={volumeOpen}
+                      title="Volume"
+                      data-active={volumeOpen}
+                      data-testid="btn-volume"
+                      onClick={() => setVolumeOpen((o) => !o)}
+                    >
+                      <VolumeIcon level={volumeLevel(volume.state?.percent ?? 50, !!volume.state?.muted)} width={15} height={15} />
+                    </button>
+                  )}
                   <button
                     className="icon-btn small"
                     aria-label={exp.pinned ? 'Unpin' : 'Pin open'}
@@ -281,6 +304,18 @@ export function IslandApp() {
                   </button>
                 </div>
               </header>
+              {volumeOpen && volumeOn && (
+                <VolumePopover
+                  state={volume.state}
+                  failure={volume.failure}
+                  step={settings.island.volumeStep}
+                  onSlide={volume.slide}
+                  onSlideEnd={volume.slideEnd}
+                  onStep={volume.step}
+                  onToggleMute={volume.toggleMute}
+                  onClose={() => setVolumeOpen(false)}
+                />
+              )}
               <main className="body" key={tab}>
                 {tab === 'music' && <MusicPanel session={session} music={music} getPos={getPos} peek={<LyricPeek lyrics={lyrics} activeIndex={activeIndex} getPos={getPos} music={music} playing={playing} />} />}
                 {tab === 'lyrics' && (

@@ -21,6 +21,9 @@ mod screenshot_windows;
 mod clipboard_windows;
 mod lyrics;
 mod media;
+mod volume;
+#[cfg(windows)]
+mod volume_windows;
 mod notifications;
 mod secrets;
 #[cfg(windows)]
@@ -362,6 +365,36 @@ async fn media_transport(
     media.send(command)
 }
 
+// Volume (desktop controls, stage 3) -------------------------------------------
+
+// `async` so a slow audio driver never blocks the UI thread.
+#[tauri::command]
+async fn volume_get(app: AppHandle, volume: State<'_, volume::VolumeHandle>) -> Result<vex_core::volume::VolumeState, String> {
+    volume.run(&app, volume::Cmd::Get)
+}
+
+#[tauri::command]
+async fn volume_set(app: AppHandle, volume: State<'_, volume::VolumeHandle>, percent: i64) -> Result<vex_core::volume::VolumeState, String> {
+    volume.run(&app, volume::Cmd::Set(percent))
+}
+
+/// `direction` is only its sign; the size of one step comes from Settings (island.volumeStep).
+#[tauri::command]
+async fn volume_step(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    volume: State<'_, volume::VolumeHandle>,
+    direction: i64,
+) -> Result<vex_core::volume::VolumeState, String> {
+    let step = state.settings.lock().unwrap().island.volume_step as i64;
+    volume.run(&app, volume::Cmd::Step(direction.signum() * step))
+}
+
+#[tauri::command]
+async fn volume_toggle_mute(app: AppHandle, volume: State<'_, volume::VolumeHandle>) -> Result<vex_core::volume::VolumeState, String> {
+    volume.run(&app, volume::Cmd::ToggleMute)
+}
+
 // Clipboard -------------------------------------------------------------------
 
 #[tauri::command]
@@ -507,6 +540,7 @@ pub fn run() {
                 island_hidden: Mutex::new(false),
             });
 
+            app.manage(volume::VolumeHandle::default());
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
             app.manage(notifications::start(app.handle().clone(), notif_cfg));
@@ -622,6 +656,10 @@ pub fn run() {
             open_settings,
             quit_app,
             media_get_state,
+            volume_get,
+            volume_set,
+            volume_step,
+            volume_toggle_mute,
             media_transport,
             lyrics_fetch,
             notifications_get,

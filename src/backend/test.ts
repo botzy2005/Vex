@@ -32,9 +32,11 @@ import type {
   Settings,
   SettingsPatch,
   TransportCommand,
+  VolumeState,
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
 import { createTestLauncher, type LauncherHarness } from './test_launcher';
+import { clampPercent, stepPercent } from '../island/volume';
 import { createTestHub, type HubHarness } from './test_hub';
 
 const KEY = 'islet-test-settings';
@@ -62,6 +64,12 @@ export interface Harness {
   emitIslandToggle(): void;
   /** Simulate the shell revealing the island (shortcut / tray "Show VEX"). */
   emitIslandReveal(): void;
+  /** Simulate Windows changing the volume from outside (keys, another app, a device switch). */
+  setVolume(v: Partial<VolumeState>): void;
+  /** Every volume command the island sent, in order. */
+  readonly volumeCalls: Array<{ op: 'get' | 'set' | 'step' | 'mute'; value?: number }>;
+  /** Make the next volume command fail with this message. */
+  failNextVolume(message: string | null): void;
   /** Every hide/show request the island made, with whether the stand-in honoured it. */
   readonly hiddenCalls: Array<{ hidden: boolean; applied: boolean }>;
   readonly transportCalls: TransportCommand[];
@@ -133,6 +141,24 @@ export function createTestBackend(): Backend {
   const assistantSubs = new Set<(s: AssistantState) => void>();
   const toggleSubs = new Set<() => void>();
   const revealSubs = new Set<() => void>();
+  const volumeSubs = new Set<(s: VolumeState) => void>();
+  const volumeCalls: Harness['volumeCalls'] = [];
+  let volumeFail: string | null = null;
+  let volume: VolumeState = { available: true, percent: 40, muted: false, device: null, error: null };
+  const pushVolume = () => volumeSubs.forEach((cb) => cb({ ...volume }));
+  const volumeCall = async (op: 'get' | 'set' | 'step' | 'mute', value: number | undefined, change: () => void): Promise<VolumeState> => {
+    volumeCalls.push({ op, value });
+    if (volumeFail) {
+      const m = volumeFail;
+      volumeFail = null;
+      throw new Error(m);
+    }
+    if (volume.available && op !== 'get') {
+      change();
+      pushVolume();
+    }
+    return { ...volume };
+  };
   const hiddenCalls: Harness['hiddenCalls'] = [];
   let nativeHidden = false;
   let session: MediaSession | null = null;
@@ -409,6 +435,12 @@ export function createTestBackend(): Backend {
     lyricsCalls,
     emitAssistant: (s) => assistantSubs.forEach((cb) => cb(s)),
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
+    setVolume: (v) => {
+      volume = { ...volume, ...v };
+      pushVolume();
+    },
+    volumeCalls,
+    failNextVolume: (m) => void (volumeFail = m),
     emitIslandReveal: () => {
       nativeHidden = false;
       revealSubs.forEach((cb) => cb());
@@ -558,6 +590,19 @@ export function createTestBackend(): Backend {
       if (commit) await applyPatch({ island: { offsetX: applied } } as SettingsPatch);
       return applied;
     },
+    volumeGet: () => volumeCall('get', undefined, () => {}),
+    volumeSet: (percent) =>
+      volumeCall('set', percent, () => {
+        volume.percent = clampPercent(percent);
+        if (volume.percent > 0) volume.muted = false;
+      }),
+    volumeStep: (direction) =>
+      volumeCall('step', direction, () => {
+        volume.percent = stepPercent(volume.percent, direction * settings.island.volumeStep);
+        if (volume.percent > 0) volume.muted = false;
+      }),
+    volumeToggleMute: () => volumeCall('mute', undefined, () => void (volume.muted = !volume.muted)),
+    onVolume: (cb) => sub(volumeSubs, cb),
     setIslandHidden: async (hidden) => {
       // Same rule as the native side: hiding is only honoured in Auto-Hide mode.
       const auto = settings.island.visibility === 'auto';

@@ -121,6 +121,10 @@ pub struct Island {
     pub visibility: Visibility,
     /// Auto-Hide only: how long the pointer must be away (and nothing in use) before the island hides.
     pub auto_hide_delay_ms: u32,
+    /// Show the speaker button (volume panel) in the expanded island.
+    pub volume_button: bool,
+    /// Percent per press of the panel's + and - buttons.
+    pub volume_step: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -440,6 +444,8 @@ impl Default for Island {
             hotkey: DEFAULT_HOTKEY.into(),
             visibility: Visibility::Always,
             auto_hide_delay_ms: 800,
+            volume_button: true,
+            volume_step: 5,
         }
     }
 }
@@ -543,6 +549,7 @@ impl Settings {
         i.hover_delay_ms = i.hover_delay_ms.min(2000);
         i.collapse_delay_ms = i.collapse_delay_ms.min(5000);
         i.auto_hide_delay_ms = i.auto_hide_delay_ms.clamp(200, 5000);
+        i.volume_step = i.volume_step.clamp(1, 20);
         i.hotkey = i.hotkey.trim().chars().take(40).collect();
         if i.hotkey.is_empty() {
             i.hotkey = DEFAULT_HOTKEY.into();
@@ -823,6 +830,19 @@ mod tests {
         assert_eq!(s.ai.system_prompt, "Answer like a pirate.");
         let s = Settings::default().with_patch(&serde_json::json!({"ai": {"systemPrompt": ""}})).unwrap();
         assert_eq!(s.ai.system_prompt, "", "clearing it on purpose still means no system prompt");
+    }
+
+    #[test]
+    fn volume_settings_default_on_and_the_step_is_bounded() {
+        let d = Settings::default();
+        assert!(d.island.volume_button);
+        assert_eq!(d.island.volume_step, 5);
+        let s = d.with_patch(&json!({"island": {"volumeStep": 0}})).unwrap();
+        assert_eq!(s.island.volume_step, 1);
+        let s = s.with_patch(&json!({"island": {"volumeStep": 500, "volumeButton": false}})).unwrap();
+        assert_eq!((s.island.volume_step, s.island.volume_button), (20, false));
+        let old: Settings = serde_json::from_str(r#"{"island":{"offsetX":10}}"#).unwrap();
+        assert!(old.island.volume_button);
     }
 
     #[test]

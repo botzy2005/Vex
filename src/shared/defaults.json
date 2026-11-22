@@ -19,7 +19,9 @@
     "collapseDelayMs": 350,
     "hotkey": "Ctrl+Alt+I",
     "visibility": "always",
-    "autoHideDelayMs": 800
+    "autoHideDelayMs": 800,
+    "volumeButton": true,
+    "volumeStep": 5
   },
   "music": {
     "artwork": true,

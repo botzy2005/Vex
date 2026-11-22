@@ -33,6 +33,8 @@ export interface Settings {
     hotkey: string;
     visibility: 'always' | 'auto';
     autoHideDelayMs: number;
+    volumeButton: boolean;
+    volumeStep: number;
   };
   music: {
     artwork: boolean;
@@ -155,6 +157,17 @@ export interface MediaSession {
   playbackRate: number;
   status: PlaybackStatus;
   capabilities: MediaCapabilities;
+}
+
+/** The Windows master volume as the island panel shows it. */
+export interface VolumeState {
+  available: boolean;
+  /** 0-100, the OS level rounded to a whole percent. */
+  percent: number;
+  muted: boolean;
+  device?: string | null;
+  /** A short user-facing message (no device, or the last command failed). */
+  error?: string | null;
 }
 
 export interface MediaState {

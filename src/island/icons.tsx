@@ -72,3 +72,14 @@ export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
 export const CameraIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8.500A1.500 1.500 0 0 1 5.500 7H8l1.200-2h5.600L16 7h2.500A1.500 1.500 0 0 1 20 8.500v9a1.500 1.500 0 0 1-1.500 1.500h-13A1.500 1.500 0 0 1 4 17.500v-9Z" /><circle cx="12" cy="13" r="3.200" /></svg>
 );
+
+/** Speaker with 0-3 sound waves, or a cross when muted. */
+export const VolumeIcon = ({ level, ...p }: SVGProps<SVGSVGElement> & { level: 'muted' | 'low' | 'medium' | 'high' }) => (
+  <svg {...base(p)}>
+    <path d="M4 9.5v5h3.2l4.3 3.6a.8.8 0 0 0 1.3-.6V6.5a.8.8 0 0 0-1.3-.6L7.2 9.5H4Z" />
+    {level === 'muted' && <path d="m16 9.5 4.5 5m0-5-4.5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+    {level !== 'muted' && <path d="M15.5 9.4a3.6 3.6 0 0 1 0 5.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+    {(level === 'medium' || level === 'high') && <path d="M17.9 7.3a6.8 6.8 0 0 1 0 9.4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+    {level === 'high' && <path d="M20.2 5.2a9.8 9.8 0 0 1 0 13.6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+  </svg>
+);
