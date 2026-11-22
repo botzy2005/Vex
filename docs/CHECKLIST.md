@@ -221,3 +221,15 @@ Needs your laptop (the Core Audio code is only compiled by CI here, never run):
 - [ ] The panel looks right in light theme and with the Appearance presets
 
 Known limits: master volume of the default playback device only (no per-app volume, no device switching); the device's name is not shown; the Core Audio code has not run on real hardware.
+
+## Settings: Island section (desktop controls, stage 4)
+
+Built and tested in the sandbox (Playwright against the simulated backend):
+- Settings > Island is grouped: Position (display, horizontal position with Reset position, gap from the top edge), Visibility (Always visible / Auto-hide, hide delay shown only in Auto-hide), Behaviour (expand on hover, hover delay, collapse delay, global shortcut) and Volume (volume button on/off, volume step 1-20%, disabled while the button is off).
+- Changes persist, reach the open island at once (the button appears and disappears; the step is what plus and minus do), and Reset section restores every island default.
+- No new settings were added in this stage; no existing control or its test id was removed.
+
+Needs your laptop:
+- [ ] Open Settings > Island: the groups read clearly, in light and dark theme and at your display scaling
+- [ ] Change each setting with the island visible and see it take effect without restarting VEX (position, Auto-hide, volume button and step)
+- [ ] Reset section puts the island back at the centre, Always visible, volume button on, step 5%

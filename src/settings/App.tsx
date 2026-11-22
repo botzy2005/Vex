@@ -90,6 +90,7 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
   return (
     <section>
       <h2>Island</h2>
+      <h3 className="sub" data-testid="group-position">Position</h3>
       <Row label="Display" hint="Which monitor the island appears on.">
         <Select<number> label="Display" testId="monitor" value={i.monitorIndex} onChange={(v) => set({ monitorIndex: v })}
           options={[{ value: -1, label: 'Primary display' }, ...monitors.map((m) => ({ value: m.index, label: `${m.name} (${m.width}×${m.height} @ ${Math.round(m.scale * 100)}%)` }))]} />
@@ -100,6 +101,8 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
           <button className="btn" data-testid="reset-position" disabled={i.offsetX === 0} onClick={() => set({ offsetX: 0 })}>Reset position</button>
         </div>
       </Row>
+      <Row label="Gap from top edge"><Slider label="Gap from top edge" testId="margin" min={0} max={60} step={1} value={i.marginTop} format={(v) => `${v}px`} onChange={(v) => set({ marginTop: v })} /></Row>
+      <h3 className="sub" data-testid="group-visibility">Visibility</h3>
       <Row label="Visibility" hint="Always visible keeps the island on screen. Auto-hide slides it away when the pointer leaves; move the pointer to the top edge of the screen, press the shortcut, or use the tray's Show VEX to bring it back. Notifications and timers never bring it back.">
         <Segmented<'always' | 'auto'> label="Visibility" testId="visibility" value={i.visibility} onChange={(v) => set({ visibility: v })}
           options={[{ value: 'always', label: 'Always visible' }, { value: 'auto', label: 'Auto-hide' }]} />
@@ -107,11 +110,18 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
       {i.visibility === 'auto' && (
         <Row label="Hide delay" hint="How long the island waits, once nothing is using it, before it hides."><Slider label="Hide delay" testId="autohide-delay" min={200} max={5000} step={100} value={i.autoHideDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ autoHideDelayMs: v })} /></Row>
       )}
-      <Row label="Gap from top edge"><Slider label="Gap from top edge" testId="margin" min={0} max={60} step={1} value={i.marginTop} format={(v) => `${v}px`} onChange={(v) => set({ marginTop: v })} /></Row>
+      <h3 className="sub" data-testid="group-behaviour">Behaviour</h3>
       <Row label="Expand on hover" hint="When off, click the island to expand it."><Toggle label="Expand on hover" testId="hover" checked={i.hoverToExpand} onChange={(v) => set({ hoverToExpand: v })} /></Row>
       <Row label="Hover delay"><Slider label="Hover delay" testId="hover-delay" min={0} max={1000} step={10} value={i.hoverDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ hoverDelayMs: v })} /></Row>
       <Row label="Collapse delay" hint="How long the island stays open after the pointer leaves."><Slider label="Collapse delay" testId="collapse-delay" min={0} max={3000} step={50} value={i.collapseDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ collapseDelayMs: v })} /></Row>
       <Row label="Global shortcut" hint="Expands and pins the island, or collapses it. Needs Ctrl, Alt or Win."><HotkeyInput testId="hotkey" value={i.hotkey} onChange={(v) => set({ hotkey: v })} /></Row>
+      <h3 className="sub" data-testid="group-volume">Volume</h3>
+      <Row label="Volume button" hint="Shows a speaker button in the expanded island. It opens a small panel for the Windows volume: slider, plus and minus, mute.">
+        <Toggle label="Volume button" testId="volume-button" checked={i.volumeButton} onChange={(v) => set({ volumeButton: v })} />
+      </Row>
+      <Row label="Volume step" hint="How much the plus and minus buttons change the volume.">
+        <Slider label="Volume step" testId="volume-step" min={1} max={20} step={1} value={i.volumeStep} disabled={!i.volumeButton} format={(v) => `${v}%`} onChange={(v) => set({ volumeStep: v })} />
+      </Row>
       <ResetButton testId="reset-island" onClick={() => update({ island: null } as unknown as SettingsPatch)} />
     </section>
   );

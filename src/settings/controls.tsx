@@ -21,11 +21,11 @@ export function Toggle({ checked, onChange, label, testId }: { checked: boolean;
 }
 
 export function Slider({
-  value, min, max, step, onChange, format, label, testId,
-}: { value: number; min: number; max: number; step: number; onChange(v: number): void; format?: (v: number) => string; label: string; testId?: string }) {
+  value, min, max, step, onChange, format, label, testId, disabled,
+}: { disabled?: boolean; value: number; min: number; max: number; step: number; onChange(v: number): void; format?: (v: number) => string; label: string; testId?: string }) {
   return (
     <div className="slider">
-      <input type="range" aria-label={label} min={min} max={max} step={step} value={value} data-testid={testId} onChange={(e) => onChange(Number(e.target.value))} />
+      <input type="range" aria-label={label} min={min} max={max} step={step} value={value} data-testid={testId} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
       <span className="slider-val">{format ? format(value) : value}</span>
     </div>
   );
