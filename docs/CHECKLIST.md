@@ -233,3 +233,25 @@ Needs your laptop:
 - [ ] Open Settings > Island: the groups read clearly, in light and dark theme and at your display scaling
 - [ ] Change each setting with the island visible and see it take effect without restarting VEX (position, Auto-hide, volume button and step)
 - [ ] Reset section puts the island back at the centre, Always visible, volume button on, step 5%
+
+## Pomodoro widget (Widgets Hub, stage 9)
+
+Built and tested in the sandbox (vitest, Playwright against the simulated backend, Rust catalog tests):
+- Cycle: Focus (25 min) then Short break (5), repeated; a Long break (15) after every 4th focus session (2-8 configurable), then a new set. Lengths are 1-180 / 1-60 / 1-120 minutes. Dots show the sessions done in the current set.
+- Counting: only a focus session that ran to its end counts, on the local day it ended; "Today: N focus sessions"; the last 30 days are kept. Skip never counts. Finishing a break does not count.
+- Timers: one shared timer per phase, stored with an absolute end time by the native timer engine, so a running phase keeps running when the Hub is closed, across a reload, and after sleep. A phase that ended while the Hub was closed is counted exactly once, when the Hub opens, and waits for you to press Start.
+- Auto-start (off by default): starts the next phase by itself only when the end happened live with the Hub open (within 15 s); never for a phase that ended long ago.
+- Controls: Start / Pause / Resume, Reset (back to the full phase), Skip, and settings (lengths, long-break interval, auto-start, chime). A running phase keeps its own length; changes apply to phases that have not started.
+- Island: while a phase runs or is paused the widget publishes a one-line status ("Focus, ends 14:32"). When a phase ends the island plays a short chime if "Play a chime" is on. It never reveals a hidden island, and a stale end (VEX was closed or the PC slept) is silent.
+- Damaged saved data is repaired; stray Pomodoro timers do not multiply; removing and re-adding the card keeps today's count.
+
+Needs your laptop (the native timer scheduler and the island window are only compiled by CI here):
+- [ ] Add Pomodoro from the Hub gallery, press Start, close the Hub window: the island is unaffected; reopen after a minute and the time has kept counting
+- [ ] Let a short phase run out (set Focus to 1 minute in the card's settings): you hear the chime from the island, the Hub shows "Focus finished" and the break waiting
+- [ ] With the island on Auto-hide and hidden, a phase end plays the chime and does NOT bring the island back
+- [ ] Close the Hub before a phase ends: you still hear the chime, and reopening the Hub counts the session once
+- [ ] Sleep the PC during a phase: after waking the remaining time is correct; a phase that ended during sleep is counted once and is silent
+- [ ] Pin Pomodoro and check the island's Widgets tab entry opens the Hub on it
+- [ ] The card looks right at both sizes, in light and dark theme
+
+Known limits: there is no Windows desktop notification for a phase end (the chime plays from the island page; VEX's notification code only reads Windows notifications); no per-task labels or long-term statistics; the compact island does not show the countdown yet (stage 15); the chime needs the island page to be running (it always is while VEX runs). The chime and the status line have not been heard or seen on real hardware.

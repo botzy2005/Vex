@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import type { WidgetSize } from '../shared/types';
-import { CompassIcon } from './icons';
+import { CompassIcon, TimerIcon } from './icons';
 
 /** What the Hub hands every widget. */
 export interface WidgetProps {
@@ -20,7 +20,10 @@ export interface WidgetEntry {
  * UI side of the catalog (`src/shared/widgets.json` says what exists; this says how to draw it).
  * Adding a widget = one catalog entry + one line here + a component.
  */
-const entries = new Map<string, WidgetEntry>([['welcome', { icon: CompassIcon, load: () => import('./widgets/Welcome') }]]);
+const entries = new Map<string, WidgetEntry>([
+  ['welcome', { icon: CompassIcon, load: () => import('./widgets/Welcome') }],
+  ['pomodoro', { icon: TimerIcon, load: () => import('./widgets/pomodoro/Pomodoro') }],
+]);
 
 export const entryOf = (kind: string): WidgetEntry | undefined => entries.get(kind);
 export const registerWidget = (kind: string, entry: WidgetEntry): void => void entries.set(kind, entry);

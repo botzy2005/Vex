@@ -21,6 +21,9 @@ import { useScreenshotToast } from '../screenshot/useScreenshots';
 import { BellIcon, CameraIcon, ClipboardIcon, GearIcon, LyricsIcon, MusicIcon, PinIcon, PowerIcon, SparkIcon, VolumeIcon } from './icons';
 import { onAccent } from './accent';
 import { useIslandDrag } from './useIslandDrag';
+import { playChime } from '../shared/chime';
+import { normalizeSettings } from '../hub/widgets/pomodoro/logic';
+import type { TimerFinished } from '../shared/types';
 import { useAutoHide } from './useAutoHide';
 import { useVolume } from './useVolume';
 import { VolumePopover } from './VolumePopover';
@@ -80,6 +83,21 @@ export function IslandApp() {
   // Only these reveal a hidden island: the edge strip, the shortcut / tray "Show VEX" (island-reveal) and a
   // screenshot confirmation. Notifications, timers and widget updates deliberately do not.
   useSubscription<null>((cb) => backend.onIslandReveal(() => cb(null)), () => hide.reveal());
+  // A Pomodoro phase ended: a chime, nothing else. It never reveals a hidden island (the user's manual state is
+  // respected) and a stale end (VEX was closed, the PC slept) stays silent.
+  useSubscription<TimerFinished>(
+    (cb) => backend.onTimerFinished(cb),
+    (f) => {
+      if (f.owner !== 'pomodoro' || f.lateMs > 60_000) return;
+      backend
+        .hubDataGet('pomodoro')
+        .then((raw) => {
+          const stored = raw && typeof raw === 'object' ? (raw as { settings?: unknown }).settings : undefined;
+          if (normalizeSettings(stored).sound) playChime();
+        })
+        .catch(() => {});
+    },
+  );
   const shotShowing = !!shot.toast;
   useEffect(() => {
     if (shotShowing) hide.reveal();

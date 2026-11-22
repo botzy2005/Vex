@@ -4,7 +4,20 @@
       "id": "welcome",
       "title": "Getting started",
       "description": "A short guide to arranging your dashboard. Remove it whenever you like.",
-      "sizes": ["m", "l"],
+      "sizes": [
+        "m",
+        "l"
+      ],
+      "defaultSize": "m"
+    },
+    {
+      "id": "pomodoro",
+      "title": "Pomodoro",
+      "description": "Focus sessions and breaks on a timer that keeps running when the Hub is closed. Counts today's finished sessions.",
+      "sizes": [
+        "m",
+        "l"
+      ],
       "defaultSize": "m"
     }
   ]

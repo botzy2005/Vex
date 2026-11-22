@@ -33,6 +33,10 @@ export interface HubHarness {
   statuses(): HubStatusEntry[];
   /** Pretend another window changed the layout. */
   emitLayout(l: HubLayout): void;
+  /** Fast-forward: make a running timer (the given one, or the first) due `lateMs` ago and let it finish now. */
+  expire(id?: number, lateMs?: number): void;
+  /** The shared timers as the engine holds them. */
+  timers(): HubTimer[];
   /** The stand-in's backend calls, so a test can publish a status or create a timer as a widget would. */
   api: HubApi;
 }
@@ -127,7 +131,10 @@ export function createTestHub() {
     });
     if (done.length) {
       saveTimers(next);
-      done.forEach((f) => finishedSubs.forEach((cb) => cb(f)));
+      done.forEach((f) => {
+        channel.postMessage({ type: 'finished', f });
+        finishedSubs.forEach((cb) => cb(f));
+      });
     } else schedule();
   };
   const mutate = (id: number, f: (t: HubTimer) => HubTimer) => {
@@ -146,6 +153,8 @@ export function createTestHub() {
     else if (m.type === 'status') {
       statuses = new Map((m.list as HubStatusEntry[]).map((s) => [s.kind, { label: s.label, detail: s.detail, priority: s.priority }]));
       emitStatus();
+    } else if (m.type === 'finished') {
+      finishedSubs.forEach((cb) => cb((m as unknown as { f: TimerFinished }).f));
     } else if (m.type === 'timers') {
       timerSubs.forEach((cb) => cb(m.list as HubTimer[]));
       schedule();
@@ -193,6 +202,14 @@ export function createTestHub() {
     dataWrites,
     statuses: statusList,
     emitLayout,
+    expire(id, lateMs = 0) {
+      const list = timers();
+      const t = list.find((x) => x.state === 'running' && (id === undefined || x.id === id));
+      if (!t) throw new Error('no running timer to expire');
+      saveTimers(list.map((x) => (x.id === t.id && x.state === 'running' ? { ...x, endsAt: Date.now() - lateMs } : x)));
+      poll();
+    },
+    timers,
     api: undefined as unknown as HubApi,
   };
 

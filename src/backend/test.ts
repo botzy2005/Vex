@@ -36,6 +36,7 @@ import type {
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
 import { createTestLauncher, type LauncherHarness } from './test_launcher';
+import { chimeListeners } from '../shared/chime';
 import { clampPercent, stepPercent } from '../island/volume';
 import { createTestHub, type HubHarness } from './test_hub';
 
@@ -67,6 +68,8 @@ export interface Harness {
   /** Simulate Windows changing the volume from outside (keys, another app, a device switch). */
   setVolume(v: Partial<VolumeState>): void;
   /** Every volume command the island sent, in order. */
+  /** How many times this page played the phase-end chime. */
+  chimeCount: number;
   readonly volumeCalls: Array<{ op: 'get' | 'set' | 'step' | 'mute'; value?: number }>;
   /** Make the next volume command fail with this message. */
   failNextVolume(message: string | null): void;
@@ -439,6 +442,7 @@ export function createTestBackend(): Backend {
       volume = { ...volume, ...v };
       pushVolume();
     },
+    chimeCount: 0,
     volumeCalls,
     failNextVolume: (m) => void (volumeFail = m),
     emitIslandReveal: () => {
@@ -550,6 +554,7 @@ export function createTestBackend(): Backend {
     },
   };
   window.__harness = harness;
+  chimeListeners.add(() => void harness.chimeCount++);
 
   async function applyPatch(patch: SettingsPatch) {
     // Same semantics as the Rust backend: `null` removes a key, then missing keys fall back to defaults.

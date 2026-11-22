@@ -1,0 +1,30 @@
+.pomo { position: relative; display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; --pomo: var(--accent); }
+.pomo[data-phase='short'] { --pomo: #4cc38a; }
+.pomo[data-phase='long'] { --pomo: #5aa9e6; }
+.pomo-main { display: flex; align-items: center; gap: 14px; flex: 1; min-height: 0; }
+.pomo-ring { position: relative; height: 100%; max-height: 112px; aspect-ratio: 1; flex: none; display: grid; place-items: center; }
+.pomo[data-size='l'] .pomo-ring { max-height: 150px; }
+.pomo-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.pomo-track { fill: none; stroke: var(--vex-elevated); stroke-width: 7; }
+.pomo-arc { fill: none; stroke: var(--pomo); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 900ms linear, stroke var(--d-content) var(--ease-std); }
+.pomo[data-state='paused'] .pomo-arc { opacity: 0.55; }
+.pomo-time { font-variant-numeric: tabular-nums; font-weight: var(--fw-semi); font-size: 22px; letter-spacing: 0.01em; }
+.pomo[data-size='l'] .pomo-time { font-size: 28px; }
+.pomo-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+.pomo-phase { font-weight: var(--fw-semi); color: var(--pomo); }
+.pomo-dots { display: flex; gap: 6px; }
+.pomo-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--vex-elevated); box-shadow: inset 0 0 0 1px var(--vex-line); }
+.pomo-dots i[data-on='true'] { background: var(--pomo); box-shadow: none; }
+.pomo-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.hub-btn.primary { background: var(--pomo); color: var(--on-accent); border-color: transparent; }
+.pomo-foot { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); color: var(--vex-text-dim); flex: none; }
+.pomo-notice { color: var(--pomo); }
+.pomo-error { font-size: var(--fs-sm); color: var(--vex-danger); }
+.pomo-done { justify-self: start; }
+.pomo-settings { display: grid; flex: 1; min-height: 0; align-content: start; gap: 8px; padding: 2px; overflow: auto; animation: gal-in var(--d-content) var(--ease-out); }
+.pomo-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); }
+.pomo-input { display: inline-flex; align-items: center; gap: 6px; }
+.pomo-input input { width: 64px; height: var(--ctl-sm); border-radius: var(--r-sm); border: 1px solid var(--vex-line); background: var(--vex-elevated); color: var(--vex-text); padding: 0 8px; font: inherit; }
+.pomo-input em { font-style: normal; color: var(--vex-text-dim); min-width: 52px; }
+.pomo-check { display: flex; gap: 8px; align-items: center; font-size: var(--fs-sm); }
+.pomo-note { font-size: var(--fs-xs); color: var(--vex-text-faint); }
