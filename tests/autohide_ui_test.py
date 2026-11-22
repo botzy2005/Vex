@@ -143,6 +143,26 @@ with sync_playwright() as p:
         s.close()
     check("Settings: visibility switch persists and the delay shows only in Auto-Hide", settings_ui)
 
+    def volume_panel_holds():
+        fresh(delay=300)
+        isl.hover(); pg.wait_for_timeout(900)
+        pg.locator('[data-testid="btn-volume"]').click(); pg.wait_for_timeout(300)
+        pg.mouse.move(5, 400); pg.wait_for_timeout(250)
+        assert phase() == "visible"
+        # leaving collapses the island, which closes the panel; only then may it hide
+        pg.wait_for_timeout(2500)
+        assert pg.locator('[data-testid="volume-popover"]').count() == 0 and phase() == "hidden", phase()
+        strip.hover(); pg.wait_for_timeout(500); assert phase() == "visible"
+    check("integration: the volume panel keeps the island visible; after it collapses, Auto-Hide hides and the strip reveals", volume_panel_holds)
+
+    def moved_island_strip():
+        fresh(delay=300)
+        pg.evaluate("()=>window.__harness.patchSettings({island:{offsetX:120}})"); pg.wait_for_timeout(300)
+        pg.wait_for_timeout(1200); assert phase() == "hidden"
+        strip.hover(); pg.wait_for_timeout(500); assert phase() == "visible"
+        assert pg.evaluate("()=>window.__harness.hiddenCalls.at(-1).hidden") is False
+    check("integration: a saved off-centre position does not break hide and reveal", moved_island_strip)
+
     check("no uncaught page errors", lambda: (_ for _ in ()).throw(AssertionError(errors[:3])) if errors else None)
     b.close()
 
