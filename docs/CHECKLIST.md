@@ -309,3 +309,20 @@ Needs your laptop:
 - [ ] Both card sizes look right in light and dark theme
 
 Known limits: no desktop notification (only the chime); the length of a countdown cannot be edited after it is created (delete and recreate); no alarms at a clock time; no count-up stopwatch.
+
+## Calendar widget (Widgets Hub, stage 13)
+
+Built and tested in the sandbox (vitest, Playwright with a fixed clock and a pretend Kolkata viewer):
+- A month grid (42 days, Monday or Sunday first, remembered) with today outlined, the selected day filled and a dot on every day that has events. Prev/next month, Today, arrow keys (day/week) and PageUp/PageDown (month) work.
+- Add, edit and delete events with a title, date, optional time (empty means all day) and an optional note. Bad input (empty title, impossible date, bad time) is refused with a reason. Up to 500 events; limits on title and note length.
+- The list shows the selected day or the next 7 days with "Today" / "Tomorrow" wording.
+- "Today" moves on at local midnight without reopening the Hub.
+- A damaged saved calendar is repaired instead of breaking the card.
+- Everything stays on this PC. There is no account, no sync, no import, and no reminders or notifications.
+
+Needs your laptop:
+- [ ] Add the Calendar from the gallery, add a few events, close the Hub, quit and restart VEX: events are kept
+- [ ] Today's date matches the Windows taskbar; leave it open past midnight and check it moves on
+- [ ] Keyboard use and the date/time pickers look right in light and dark theme
+
+Known limits: single events only (no repeats, no all-day ranges); no reminders; no link to Google/Outlook calendars; one size.

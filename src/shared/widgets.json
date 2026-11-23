@@ -49,6 +49,15 @@
         "l"
       ],
       "defaultSize": "l"
+    },
+    {
+      "id": "calendar",
+      "title": "Calendar",
+      "description": "A month view with your own events, saved on this PC. No account and no sync.",
+      "sizes": [
+        "l"
+      ],
+      "defaultSize": "l"
     }
   ]
 }

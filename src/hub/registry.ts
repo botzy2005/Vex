@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import type { WidgetSize } from '../shared/types';
-import { CompassIcon, GlobeIcon, HourglassIcon, NoteIcon, TimerIcon } from './icons';
+import { CalendarIcon, CompassIcon, GlobeIcon, HourglassIcon, NoteIcon, TimerIcon } from './icons';
 
 /** What the Hub hands every widget. */
 export interface WidgetProps {
@@ -25,6 +25,7 @@ const entries = new Map<string, WidgetEntry>([
   ['notes', { icon: NoteIcon, load: () => import('./widgets/notes/Notes') }],
   ['worldclock', { icon: GlobeIcon, load: () => import('./widgets/worldclock/WorldClock') }],
   ['countdown', { icon: HourglassIcon, load: () => import('./widgets/countdown/Countdown') }],
+  ['calendar', { icon: CalendarIcon, load: () => import('./widgets/calendar/Calendar') }],
   ['pomodoro', { icon: TimerIcon, load: () => import('./widgets/pomodoro/Pomodoro') }],
 ]);
 
