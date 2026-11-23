@@ -29,6 +29,16 @@
         "l"
       ],
       "defaultSize": "l"
+    },
+    {
+      "id": "worldclock",
+      "title": "World clock",
+      "description": "The time in other cities, with the difference from your own, day or night, and 12 or 24 hour display.",
+      "sizes": [
+        "m",
+        "l"
+      ],
+      "defaultSize": "m"
     }
   ]
 }

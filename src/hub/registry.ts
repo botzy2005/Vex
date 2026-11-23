@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import type { WidgetSize } from '../shared/types';
-import { CompassIcon, NoteIcon, TimerIcon } from './icons';
+import { CompassIcon, GlobeIcon, NoteIcon, TimerIcon } from './icons';
 
 /** What the Hub hands every widget. */
 export interface WidgetProps {
@@ -23,6 +23,7 @@ export interface WidgetEntry {
 const entries = new Map<string, WidgetEntry>([
   ['welcome', { icon: CompassIcon, load: () => import('./widgets/Welcome') }],
   ['notes', { icon: NoteIcon, load: () => import('./widgets/notes/Notes') }],
+  ['worldclock', { icon: GlobeIcon, load: () => import('./widgets/worldclock/WorldClock') }],
   ['pomodoro', { icon: TimerIcon, load: () => import('./widgets/pomodoro/Pomodoro') }],
 ]);
 

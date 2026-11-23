@@ -274,3 +274,22 @@ Needs your laptop:
 - [ ] The editor and list look right at both card sizes, in light and dark theme, and with Windows text scaling
 
 Known limits: plain text only (no formatting, checklists, images or attachments); no tags or folders; no export or import yet; notes are not synced between PCs; undo is the text box's own (Ctrl+Z) and does not undo a deletion.
+
+## World Clock widget (Widgets Hub, stage 11)
+
+Built and tested in the sandbox (vitest with real time-zone data, Playwright with a fixed clock and a pretend Kolkata viewer):
+- Your own time first ("Your time zone"), then the cities you add. A new card starts with London, New York and Tokyo. Each row shows the time, a day word ("Today", "Tomorrow", "Yesterday", or a short date), the difference from your own time ("+3h 30m", "−5h 30m", "same time", including 15- and 30-minute zones such as Nepal and India), and a sun or moon for that city's own daytime (06:00-17:59).
+- Add city searches a built-in list of 70 well-known cities by name, country or zone, and does not offer one you already have; up to 12 clocks. Edit mode reorders and removes (never the local row). An empty list you chose stays empty.
+- Daylight saving is applied per city and per date, in both hemispheres, including the exact switching minute (checked against real zone data).
+- 12/24 hour: System, 24 h or 12 h, remembered. A 24-hour display always has two digits.
+- The clocks redraw once a minute, on the minute, and only while the Hub window is visible; nothing runs when the Hub is closed. No network, no location access, nothing is sent anywhere.
+- A damaged saved list is repaired (bad, unknown and duplicate zones dropped).
+
+Needs your laptop:
+- [ ] Add World clock from the gallery: your own time matches the Windows taskbar clock, and the three starter cities look right against a time-zone website you trust
+- [ ] Add your own cities, close the Hub, quit and restart VEX: the list is kept
+- [ ] Change the Windows time zone or the Windows 12/24 hour setting while the Hub is open and check the System option follows within a minute (or after reopening)
+- [ ] Leave the Hub open across a minute boundary: all clocks advance together without flicker
+- [ ] The card looks right at both sizes, in light and dark theme
+
+Known limits: a fixed list of 70 cities (no free-text places, no GPS); labels cannot be renamed yet; no alarms, meeting planner or sunrise times; day and night is a simple 06:00-18:00 rule, not real daylight; the list depends on the time-zone data in the system's web view, which Windows keeps updated.

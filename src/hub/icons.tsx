@@ -56,3 +56,12 @@ export const TimerIcon = (p: P) => (
 export const NoteIcon = (p: P) => (
   <svg {...base(p)}><path d="M6 3.5h9l3.5 3.5v13a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z" /><path d="M14.5 3.5V7.5h4M8.5 12h7M8.5 15.5h5" /></svg>
 );
+export const GlobeIcon = (p: P) => (
+  <svg {...base(p)}><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.500S14.600 18 12 20.500C9.400 18 8.100 15.200 8.100 12S9.400 5.900 12 3.500Z" /></svg>
+);
+export const SunIcon = (p: P) => (
+  <svg {...base(p)}><circle cx="12" cy="12" r="3.8" /><path d="M12 3.500v2M12 18.500v2M3.500 12h2M18.500 12h2M6 6l1.400 1.400M16.600 16.600 18 18M6 18l1.400-1.400M16.600 7.400 18 6" /></svg>
+);
+export const MoonIcon = (p: P) => (
+  <svg {...base(p)}><path d="M19.500 14.500A7.500 7.500 0 0 1 9.500 4.500a7.500 7.500 0 1 0 10 10Z" /></svg>
+);
