@@ -358,3 +358,13 @@ Needs your laptop:
 - [ ] Turn the setting off: the line and dot disappear
 
 Known limits: one line (the highest-priority status); no click on the line yet (open the island to reach the Widgets tab).
+
+## Final regression (Widgets Hub, stage 16)
+
+Run in the sandbox on the final tree (2026-11-23):
+- vitest 237 passed; cargo test 27 (vex) + 317 (vex-core, 316 on Windows) passed; clippy 0 warnings; typecheck clean.
+- Playwright: main UI 124, screenshot 26, redesign 10, launcher 52, hub 37, position 20, auto-hide 18, volume 15, island settings 8, Pomodoro 21, Notes 17, World Clock 14, Countdown 14, Calendar 11, System Monitor 8, island status 6, lyrics layout 157 - all passed.
+- Production build succeeds and contains no test-harness code.
+- Windows CI built the installer for every stage up to System Monitor.
+
+Not verified anywhere yet: everything that touches real Windows (volume, Auto-Hide strip, tray, native timers and chime, System Monitor readings, the island status line). Work through the "Needs your laptop" lists above on the ASUS TUF F15, newest widgets last.
