@@ -1,7 +1,7 @@
 import type { AssistantState, Shape } from '../shared/types';
 
 export type Tab = 'music' | 'lyrics' | 'assistant' | 'notifications' | 'clipboard' | 'screenshot' | 'widgets';
-export type CompactView = 'idle' | 'media' | 'lyrics' | 'assistant' | 'notification' | 'screenshot';
+export type CompactView = 'idle' | 'status' | 'media' | 'lyrics' | 'assistant' | 'notification' | 'screenshot';
 export type View = CompactView | 'expanded';
 
 /** Transparent margin the window keeps around the island (sides and bottom). */
@@ -15,6 +15,8 @@ export interface ActivityInput {
   notification?: boolean;
   /** A screenshot was just taken (or failed) and its confirmation is showing. */
   screenshot?: boolean;
+  /** A widget status line (running timer) is available and allowed. */
+  status?: boolean;
 }
 
 /**
@@ -27,11 +29,13 @@ export function resolveCompactView(a: ActivityInput): CompactView {
   if (a.notification) return 'notification';
   if (a.hasSession && a.lyricsLineVisible) return 'lyrics';
   if (a.hasSession) return 'media';
+  if (a.status) return 'status';
   return 'idle';
 }
 
 const COMPACT_SIZE: Record<CompactView, { w: number; h: number }> = {
   idle: { w: 176, h: 34 },
+  status: { w: 260, h: 38 },
   media: { w: 248, h: 38 },
   lyrics: { w: 400, h: 42 },
   assistant: { w: 212, h: 42 },

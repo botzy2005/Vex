@@ -551,3 +551,14 @@ describe('island drag maths', () => {
     expect(canStartAltDrag(null)).toBe(true);
   });
 });
+
+describe('widget status on the collapsed island', () => {
+  const base = { assistant: 'idle' as const, hasSession: false, lyricsLineVisible: false };
+  it('shows only when nothing else is going on', () => {
+    expect(resolveCompactView({ ...base, status: true })).toBe('status');
+    expect(resolveCompactView({ ...base, status: true, hasSession: true })).toBe('media');
+    expect(resolveCompactView({ ...base, status: true, notification: true })).toBe('notification');
+    expect(resolveCompactView({ ...base, status: true, assistant: 'thinking' })).toBe('assistant');
+    expect(resolveCompactView({ ...base, status: false })).toBe('idle');
+  });
+});

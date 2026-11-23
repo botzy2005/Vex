@@ -125,6 +125,8 @@ pub struct Island {
     pub volume_button: bool,
     /// Percent per press of the panel's + and - buttons.
     pub volume_step: u32,
+    /// Show running timers and other widget status lines on the collapsed island.
+    pub show_widget_status: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -446,6 +448,7 @@ impl Default for Island {
             auto_hide_delay_ms: 800,
             volume_button: true,
             volume_step: 5,
+            show_widget_status: true,
         }
     }
 }
@@ -843,6 +846,9 @@ mod tests {
         assert_eq!((s.island.volume_step, s.island.volume_button), (20, false));
         let old: Settings = serde_json::from_str(r#"{"island":{"offsetX":10}}"#).unwrap();
         assert!(old.island.volume_button);
+        assert!(old.island.show_widget_status);
+        let off = d.with_patch(&json!({"island": {"showWidgetStatus": false}})).unwrap();
+        assert!(!off.island.show_widget_status);
     }
 
     #[test]

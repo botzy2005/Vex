@@ -21,7 +21,8 @@
     "visibility": "always",
     "autoHideDelayMs": 800,
     "volumeButton": true,
-    "volumeStep": 5
+    "volumeStep": 5,
+    "showWidgetStatus": true
   },
   "music": {
     "artwork": true,

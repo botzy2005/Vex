@@ -115,6 +115,10 @@ function IslandPage({ s, update }: { s: Settings; update: Update }) {
       <Row label="Hover delay"><Slider label="Hover delay" testId="hover-delay" min={0} max={1000} step={10} value={i.hoverDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ hoverDelayMs: v })} /></Row>
       <Row label="Collapse delay" hint="How long the island stays open after the pointer leaves."><Slider label="Collapse delay" testId="collapse-delay" min={0} max={3000} step={50} value={i.collapseDelayMs} format={(v) => `${v} ms`} onChange={(v) => set({ collapseDelayMs: v })} /></Row>
       <Row label="Global shortcut" hint="Expands and pins the island, or collapses it. Needs Ctrl, Alt or Win."><HotkeyInput testId="hotkey" value={i.hotkey} onChange={(v) => set({ hotkey: v })} /></Row>
+      <h3 className="sub" data-testid="group-widgets">Widgets</h3>
+      <Row label="Show timers on the island" hint="While the island is collapsed and nothing else is happening, a running Pomodoro or countdown appears as one line. It never brings back a hidden island.">
+        <Toggle label="Show timers on the island" testId="widget-status" checked={i.showWidgetStatus} onChange={(v) => set({ showWidgetStatus: v })} />
+      </Row>
       <h3 className="sub" data-testid="group-volume">Volume</h3>
       <Row label="Volume button" hint="Shows a speaker button in the expanded island. It opens a small panel for the Windows volume: slider, plus and minus, mute.">
         <Toggle label="Volume button" testId="volume-button" checked={i.volumeButton} onChange={(v) => set({ volumeButton: v })} />

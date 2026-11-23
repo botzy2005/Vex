@@ -254,7 +254,7 @@ Needs your laptop (the native timer scheduler and the island window are only com
 - [ ] Pin Pomodoro and check the island's Widgets tab entry opens the Hub on it
 - [ ] The card looks right at both sizes, in light and dark theme
 
-Known limits: there is no Windows desktop notification for a phase end (the chime plays from the island page; VEX's notification code only reads Windows notifications); no per-task labels or long-term statistics; the compact island does not show the countdown yet (stage 15); the chime needs the island page to be running (it always is while VEX runs). The chime and the status line have not been heard or seen on real hardware.
+Known limits: there is no Windows desktop notification for a phase end (the chime plays from the island page; VEX's notification code only reads Windows notifications); no per-task labels or long-term statistics; the chime needs the island page to be running (it always is while VEX runs). The chime and the status line have not been heard or seen on real hardware.
 
 ## Notes widget (Widgets Hub, stage 10)
 
@@ -300,7 +300,7 @@ Built and tested in the sandbox (vitest, Playwright against the simulated backen
 - Six quick countdowns (1, 5, 10, 15, 30 min, 1 h) that start at once, or your own time (hours, minutes, seconds, up to 99:59:59) with an optional label; Enter in the form starts it. Bad input is refused with a reason and creates nothing.
 - Several can run at once (up to 8). Each has Pause/Resume, Reset, Delete; a finished one says "Time's up" and can be restarted.
 - They use the shared native timer engine with absolute end times: they keep running when the Hub is closed, after a reload, and across sleep.
-- The island shows the countdown that ends first as a one-line status ("Tea, ends 14:32") while it runs, and plays the same short chime when one ends (a setting on the card; stale ends are silent). It never reveals a hidden island.
+- The countdown that ends first is published as a one-line status ("Tea · ends 14:32"), shown in the island's Widgets tab and, when collapsed and idle, on the island itself (stage 15), and plays the same short chime when one ends (a setting on the card; stale ends are silent). It never reveals a hidden island.
 
 Needs your laptop:
 - [ ] Start a 1-minute countdown, close the Hub, wait: you hear the chime from the island and reopening shows "Time's up"
@@ -343,3 +343,18 @@ Needs your laptop (the Windows reading code has only been compiled in CI, never 
 - [ ] Close the Hub: Task Manager shows no extra VEX activity from this widget
 
 Known limits: no GPU, temperatures, disk or per-process numbers; "time left" is Windows' own estimate and often missing while charging; one size.
+
+## Island integration (Widgets Hub, stage 15)
+
+Built and tested in the sandbox (layout/pick unit tests, Playwright with a Hub page and an island page sharing state):
+- When the island is collapsed and nothing else is happening, a running Pomodoro or countdown appears as one line ("Focus · ends 14:32") with a small dot. With music playing, only the dot appears (the song keeps the space). Notifications, the assistant and screenshot confirmations still take priority.
+- New setting: Settings > Island > Widgets > "Show timers on the island" (on by default).
+- It never reveals a hidden Auto-Hide island and does not stop it from hiding; when a timer ends the island only plays its chime.
+
+Needs your laptop:
+- [ ] Start a Pomodoro, close the Hub: the collapsed island shows the line; the line is readable in light and dark theme
+- [ ] Play music while a timer runs: only the dot shows; pause the music and the line returns
+- [ ] With Auto-Hide on, the island still hides while a timer runs and stays hidden when it ends
+- [ ] Turn the setting off: the line and dot disappear
+
+Known limits: one line (the highest-priority status); no click on the line yet (open the island to reach the Widgets tab).

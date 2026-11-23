@@ -29,6 +29,8 @@ import { useVolume } from './useVolume';
 import { VolumePopover } from './VolumePopover';
 import { volumeLevel } from './volume';
 import { useAccent, useActiveLine, useExpansion, useIslandSpring, usePlaybackPosition, useWindowSize } from './hooks';
+import { useHubStatuses } from '../hub/useHub';
+import { pickStatus, statusText } from './status';
 import { computeLayout, resolveCompactView, type Tab } from './layout';
 import { MediaBackdrop } from './MediaBackdrop';
 import { Artwork, MusicPanel } from './MusicPanel';
@@ -129,8 +131,10 @@ export function IslandApp() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const hubStatus = pickStatus(useHubStatuses(), settings?.island.showWidgetStatus ?? true);
   const a = settings?.appearance;
   const compact = resolveCompactView({
+    status: !!hubStatus,
     assistant: assistant.state,
     hasSession: !!session,
     lyricsLineVisible: !!music?.lyricsEnabled && !!music?.lyricsInCollapsed && lyrics.doc !== null && activeIndex >= 0,
@@ -210,10 +214,18 @@ export function IslandApp() {
         >
           {layout.view === 'idle' && <div className="v idle" key="idle" data-testid="view-idle" />}
 
+          {layout.view === 'status' && hubStatus && (
+            <div className="v compact status-compact" key="status" data-testid="view-status">
+              <span className="status-dot" aria-hidden="true" />
+              <div className="grow compact-title" data-testid="status-text">{statusText(hubStatus)}</div>
+            </div>
+          )}
+
           {layout.view === 'media' && session && (
             <div className="v compact" key="media" data-testid="view-media">
               {music.artwork && <Artwork session={session} className="mini" />}
               <div className="grow compact-title">{session.title}</div>
+              {hubStatus && <span className="status-dot" data-testid="status-dot" title={statusText(hubStatus)} />}
               {music.visualizer && <Visualizer playing={playing} />}
             </div>
           )}

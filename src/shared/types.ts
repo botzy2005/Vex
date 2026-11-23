@@ -35,6 +35,7 @@ export interface Settings {
     autoHideDelayMs: number;
     volumeButton: boolean;
     volumeStep: number;
+    showWidgetStatus: boolean;
   };
   music: {
     artwork: boolean;

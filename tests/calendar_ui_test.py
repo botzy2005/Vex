@@ -112,6 +112,7 @@ with sync_playwright() as p:
         pg.keyboard.press("ArrowRight"); pg.keyboard.press("ArrowDown")
         expect(day("2026-12-01")).to_have_attribute("data-selected", "true")
         expect(T("cal-title")).to_have_text("December 2026")
+        pg.wait_for_timeout(150)  # focus follows the selection a tick later
         pg.keyboard.press("PageUp")
         expect(T("cal-title")).to_have_text("November 2026")
     check("arrow keys move the selected day and PageUp/PageDown change month", keyboard)

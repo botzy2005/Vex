@@ -27,13 +27,13 @@ with sync_playwright() as p:
 
     def groups():
         order = s.evaluate("()=>[...document.querySelectorAll('[data-testid^=group-]')].map(e=>e.dataset.testid)")
-        assert order == ["group-position", "group-visibility", "group-behaviour", "group-volume"], order
+        assert order == ["group-position", "group-visibility", "group-behaviour", "group-widgets", "group-volume"], order
         # each control sits under its own group heading
         pos = s.evaluate("""()=>{const y=id=>document.querySelector('[data-testid="'+id+'"]').getBoundingClientRect().top;
           return {pos:y('group-position'),mon:y('monitor'),off:y('offset'),vis:y('group-visibility'),visb:y('visibility'),
                   beh:y('group-behaviour'),hov:y('hover'),vol:y('group-volume'),vb:y('volume-button'),vs:y('volume-step')}}""")
         assert pos["pos"] < pos["mon"] < pos["off"] < pos["vis"] < pos["visb"] < pos["beh"] < pos["hov"] < pos["vol"] < pos["vb"] < pos["vs"], pos
-    check("the Island page is grouped: Position, Visibility, Behaviour, Volume", groups)
+    check("the Island page is grouped: Position, Visibility, Behaviour, Widgets, Volume", groups)
 
     def volume_controls():
         assert saved()["volumeButton"] is True and saved()["volumeStep"] == 5
