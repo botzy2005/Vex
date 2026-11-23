@@ -65,3 +65,6 @@ export const SunIcon = (p: P) => (
 export const MoonIcon = (p: P) => (
   <svg {...base(p)}><path d="M19.500 14.500A7.500 7.500 0 0 1 9.500 4.500a7.500 7.500 0 1 0 10 10Z" /></svg>
 );
+export const HourglassIcon = (p: P) => (
+  <svg {...base(p)}><path d="M7 3.500h10M7 20.500h10M8 3.500c0 4 2.500 5 4 8.500-1.500-3.500-4-4.500-4-8.500Zm8 0c0 4-2.500 5-4 8.500m0 0c-1.500 3.500-4 4.500-4 8.500m4-8.500c1.500 3.500 4 4.500 4 8.500" /></svg>
+);

@@ -39,6 +39,16 @@
         "l"
       ],
       "defaultSize": "m"
+    },
+    {
+      "id": "countdown",
+      "title": "Countdown",
+      "description": "Timers for anything: pick 5 minutes or set your own time. Several can run at once and keep counting when the Hub is closed.",
+      "sizes": [
+        "m",
+        "l"
+      ],
+      "defaultSize": "l"
     }
   ]
 }

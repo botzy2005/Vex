@@ -83,17 +83,18 @@ export function IslandApp() {
   // Only these reveal a hidden island: the edge strip, the shortcut / tray "Show VEX" (island-reveal) and a
   // screenshot confirmation. Notifications, timers and widget updates deliberately do not.
   useSubscription<null>((cb) => backend.onIslandReveal(() => cb(null)), () => hide.reveal());
-  // A Pomodoro phase ended: a chime, nothing else. It never reveals a hidden island (the user's manual state is
-  // respected) and a stale end (VEX was closed, the PC slept) stays silent.
+  // A Pomodoro phase or a Countdown ended: a chime, nothing else. It never reveals a hidden island (the user's
+  // manual state is respected) and a stale end (VEX was closed, the PC slept) stays silent.
   useSubscription<TimerFinished>(
     (cb) => backend.onTimerFinished(cb),
     (f) => {
-      if (f.owner !== 'pomodoro' || f.lateMs > 60_000) return;
+      if ((f.owner !== 'pomodoro' && f.owner !== 'countdown') || f.lateMs > 60_000) return;
       backend
-        .hubDataGet('pomodoro')
+        .hubDataGet(f.owner)
         .then((raw) => {
-          const stored = raw && typeof raw === 'object' ? (raw as { settings?: unknown }).settings : undefined;
-          if (normalizeSettings(stored).sound) playChime();
+          const stored = raw && typeof raw === 'object' ? raw : {};
+          const sound = f.owner === 'pomodoro' ? normalizeSettings((stored as { settings?: unknown }).settings).sound : (stored as { sound?: unknown }).sound !== false;
+          if (sound) playChime();
         })
         .catch(() => {});
     },

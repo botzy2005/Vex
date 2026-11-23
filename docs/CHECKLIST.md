@@ -293,3 +293,19 @@ Needs your laptop:
 - [ ] The card looks right at both sizes, in light and dark theme
 
 Known limits: a fixed list of 70 cities (no free-text places, no GPS); labels cannot be renamed yet; no alarms, meeting planner or sunrise times; day and night is a simple 06:00-18:00 rule, not real daylight; the list depends on the time-zone data in the system's web view, which Windows keeps updated.
+
+## Countdown widget (Widgets Hub, stage 12)
+
+Built and tested in the sandbox (vitest, Playwright against the simulated backend):
+- Six quick countdowns (1, 5, 10, 15, 30 min, 1 h) that start at once, or your own time (hours, minutes, seconds, up to 99:59:59) with an optional label; Enter in the form starts it. Bad input is refused with a reason and creates nothing.
+- Several can run at once (up to 8). Each has Pause/Resume, Reset, Delete; a finished one says "Time's up" and can be restarted.
+- They use the shared native timer engine with absolute end times: they keep running when the Hub is closed, after a reload, and across sleep.
+- The island shows the countdown that ends first as a one-line status ("Tea, ends 14:32") while it runs, and plays the same short chime when one ends (a setting on the card; stale ends are silent). It never reveals a hidden island.
+
+Needs your laptop:
+- [ ] Start a 1-minute countdown, close the Hub, wait: you hear the chime from the island and reopening shows "Time's up"
+- [ ] With the island hidden (Auto-hide), a countdown ending does not bring it back
+- [ ] Start two countdowns, sleep the PC, wake it: the remaining times are correct
+- [ ] Both card sizes look right in light and dark theme
+
+Known limits: no desktop notification (only the chime); the length of a countdown cannot be edited after it is created (delete and recreate); no alarms at a clock time; no count-up stopwatch.
