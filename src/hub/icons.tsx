@@ -71,3 +71,6 @@ export const HourglassIcon = (p: P) => (
 export const CalendarIcon = (p: P) => (
   <svg {...base(p)}><rect x="4" y="5.500" width="16" height="14.500" rx="2" /><path d="M4 10h16M8.500 3.500v4M15.500 3.500v4" /></svg>
 );
+export const ChipIcon = (p: P) => (
+  <svg {...base(p)}><rect x="7" y="7" width="10" height="10" rx="1.500" /><path d="M10 3.500v3.500M14 3.500v3.500M10 17v3.500M14 17v3.500M3.500 10H7M3.500 14H7M17 10h3.500M17 14h3.500" /></svg>
+);

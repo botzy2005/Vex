@@ -326,3 +326,20 @@ Needs your laptop:
 - [ ] Keyboard use and the date/time pickers look right in light and dark theme
 
 Known limits: single events only (no repeats, no all-day ranges); no reminders; no link to Google/Outlook calendars; one size.
+
+## System Monitor widget (Widgets Hub, stage 14)
+
+Built and tested in the sandbox (Rust unit tests for the arithmetic, vitest, Playwright against simulated readings):
+- CPU %, memory % (used of total), network download/upload speed and battery (percent, charging / plugged in / on battery, time left when Windows knows it). Bars turn amber from 70% and red from 90% (for the battery, when it is low). A PC without a battery says "No battery detected".
+- Refresh every 1, 2 or 5 seconds (remembered). It reads the numbers only while the Hub window is visible; when the Hub is closed or the card removed, nothing is polled and nothing runs natively.
+- A failed reading shows an error and keeps the last good numbers; it recovers on the next one.
+- Network speed counts hardware adapters that are up (not VPN/virtual adapters), so traffic is not double-counted.
+
+Needs your laptop (the Windows reading code has only been compiled in CI, never run):
+- [ ] CPU % roughly matches Task Manager while you open something heavy
+- [ ] Memory used / total matches Task Manager (Performance > Memory)
+- [ ] Download a large file: the speed is in the right range versus Task Manager's Ethernet / Wi-Fi graph, and does not double with a VPN on
+- [ ] Battery % and "plugged in / charging / on battery" match the Windows battery icon; unplug and replug and see it change within the refresh time
+- [ ] Close the Hub: Task Manager shows no extra VEX activity from this widget
+
+Known limits: no GPU, temperatures, disk or per-process numbers; "time left" is Windows' own estimate and often missing while charging; one size.

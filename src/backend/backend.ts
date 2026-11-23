@@ -34,6 +34,7 @@ import type {
   WidgetDef,
   TransportCommand,
   UpdateResult,
+  SysSnapshot,
   VolumeState,
 } from '../shared/types';
 
@@ -76,6 +77,11 @@ export interface Backend {
   onMedia(cb: (s: MediaState) => void): Promise<Unsub>;
   /** Rejects when the command is unsupported or no backend exists. */
   mediaTransport(cmd: TransportCommand): Promise<void>;
+
+  /** One System Monitor reading. Nothing runs natively between calls; the widget polls only while visible. */
+  sysmonSample(): Promise<SysSnapshot>;
+  /** Forget the previous reading so the next one does not average over a long pause. */
+  sysmonReset(): Promise<void>;
 
   /** Windows master volume (default playback device). Every call resolves with the state now in effect. */
   volumeGet(): Promise<VolumeState>;

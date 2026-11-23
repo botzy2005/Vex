@@ -170,6 +170,25 @@ export interface VolumeState {
   error?: string | null;
 }
 
+/** One System Monitor reading (rates are None until two readings exist). */
+export interface SysBattery {
+  percent: number;
+  charging: boolean;
+  plugged: boolean;
+  minutesLeft: number | null;
+}
+export interface SysSnapshot {
+  available: boolean;
+  cpuPercent: number | null;
+  memPercent: number;
+  memUsedBytes: number;
+  memTotalBytes: number;
+  downBps: number | null;
+  upBps: number | null;
+  battery: SysBattery | null;
+  error?: string | null;
+}
+
 export interface MediaState {
   session: MediaSession | null;
 }

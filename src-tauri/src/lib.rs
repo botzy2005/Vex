@@ -21,6 +21,9 @@ mod screenshot_windows;
 mod clipboard_windows;
 mod lyrics;
 mod media;
+mod sysmon;
+#[cfg(windows)]
+mod sysmon_windows;
 mod volume;
 #[cfg(windows)]
 mod volume_windows;
@@ -369,6 +372,17 @@ async fn media_transport(
 
 // `async` so a slow audio driver never blocks the UI thread.
 #[tauri::command]
+async fn sysmon_sample(sys: State<'_, sysmon::SysmonHandle>) -> Result<vex_core::sysmon::Snapshot, String> {
+    // a few quick Win32 reads; no background thread and nothing runs between calls
+    Ok(sys.sample())
+}
+
+#[tauri::command]
+fn sysmon_reset(sys: State<'_, sysmon::SysmonHandle>) {
+    sys.reset();
+}
+
+#[tauri::command]
 async fn volume_get(app: AppHandle, volume: State<'_, volume::VolumeHandle>) -> Result<vex_core::volume::VolumeState, String> {
     volume.run(&app, volume::Cmd::Get)
 }
@@ -541,6 +555,7 @@ pub fn run() {
             });
 
             app.manage(volume::VolumeHandle::default());
+            app.manage(sysmon::SysmonHandle::default());
             app.manage(media::start(app.handle().clone()));
             app.manage(lyrics::LyricsHandle::new());
             app.manage(notifications::start(app.handle().clone(), notif_cfg));
@@ -656,6 +671,8 @@ pub fn run() {
             open_settings,
             quit_app,
             media_get_state,
+            sysmon_sample,
+            sysmon_reset,
             volume_get,
             volume_set,
             volume_step,

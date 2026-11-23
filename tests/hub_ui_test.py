@@ -79,7 +79,7 @@ with sync_playwright() as p:
         fresh()
         pg.locator('[data-testid="hub-add"]').click()
         items = pg.locator('[data-testid="gallery-item"]')
-        assert items.count() == 13, items.count()
+        assert items.count() == 14, items.count()
         welcome = pg.locator('[data-testid="gallery-item"][data-kind="welcome"]')
         expect(welcome).to_have_attribute("data-added", "true")
         expect(welcome.locator('[data-testid="gallery-add"]')).to_be_disabled()

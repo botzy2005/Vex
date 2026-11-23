@@ -21,6 +21,8 @@ export function createTauriBackend(): Backend {
     onIslandToggle: (cb) => sub<null>('island-toggle', () => cb()),
     getMedia: () => invoke('media_get_state'),
     onMedia: (cb) => sub('media-state', cb),
+    sysmonSample: () => invoke('sysmon_sample'),
+    sysmonReset: () => invoke('sysmon_reset'),
     volumeGet: () => invoke('volume_get'),
     volumeSet: (percent) => invoke('volume_set', { percent }),
     volumeStep: (direction) => invoke('volume_step', { direction }),

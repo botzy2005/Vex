@@ -32,6 +32,7 @@ import type {
   Settings,
   SettingsPatch,
   TransportCommand,
+  SysSnapshot,
   VolumeState,
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
@@ -65,6 +66,8 @@ export interface Harness {
   emitIslandToggle(): void;
   /** Simulate the shell revealing the island (shortcut / tray "Show VEX"). */
   emitIslandReveal(): void;
+  /** System Monitor stand-in: set the next readings, see how often it was polled. */
+  sysmon: { set(v: Partial<SysSnapshot>): void; readonly samples: number; readonly resets: number; failNext(msg: string | null): void };
   /** Simulate Windows changing the volume from outside (keys, another app, a device switch). */
   setVolume(v: Partial<VolumeState>): void;
   /** Every volume command the island sent, in order. */
@@ -144,6 +147,12 @@ export function createTestBackend(): Backend {
   const assistantSubs = new Set<(s: AssistantState) => void>();
   const toggleSubs = new Set<() => void>();
   const revealSubs = new Set<() => void>();
+  let sysSnap: SysSnapshot = {
+    available: true, cpuPercent: 23, memPercent: 61, memUsedBytes: 9_800_000_000, memTotalBytes: 16_000_000_000,
+    downBps: 1_200_000, upBps: 340_000, battery: { percent: 80, charging: false, plugged: false, minutesLeft: 190 }, error: null,
+  };
+  let sysFail: string | null = null;
+  const sys = { samples: 0, resets: 0 };
   const volumeSubs = new Set<(s: VolumeState) => void>();
   const volumeCalls: Harness['volumeCalls'] = [];
   let volumeFail: string | null = null;
@@ -438,6 +447,12 @@ export function createTestBackend(): Backend {
     lyricsCalls,
     emitAssistant: (s) => assistantSubs.forEach((cb) => cb(s)),
     emitIslandToggle: () => toggleSubs.forEach((cb) => cb()),
+    sysmon: {
+      set: (v) => void (sysSnap = { ...sysSnap, ...v }),
+      get samples() { return sys.samples; },
+      get resets() { return sys.resets; },
+      failNext: (m) => void (sysFail = m),
+    },
     setVolume: (v) => {
       volume = { ...volume, ...v };
       pushVolume();
@@ -595,6 +610,16 @@ export function createTestBackend(): Backend {
       if (commit) await applyPatch({ island: { offsetX: applied } } as SettingsPatch);
       return applied;
     },
+    sysmonSample: async () => {
+      sys.samples += 1;
+      if (sysFail) {
+        const m = sysFail;
+        sysFail = null;
+        throw new Error(m);
+      }
+      return { ...sysSnap };
+    },
+    sysmonReset: async () => void (sys.resets += 1),
     volumeGet: () => volumeCall('get', undefined, () => {}),
     volumeSet: (percent) =>
       volumeCall('set', percent, () => {

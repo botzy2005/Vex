@@ -19,6 +19,7 @@ pub mod screenshot;
 pub mod secrets;
 pub mod settings;
 pub mod store;
+pub mod sysmon;
 pub mod volume;
 
 pub use settings::{Settings, SettingsError};

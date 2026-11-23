@@ -58,6 +58,15 @@
         "l"
       ],
       "defaultSize": "l"
+    },
+    {
+      "id": "sysmon",
+      "title": "System monitor",
+      "description": "CPU, memory, network speed and battery, refreshed only while this window is open.",
+      "sizes": [
+        "m"
+      ],
+      "defaultSize": "m"
     }
   ]
 }

@@ -1,0 +1,15 @@
+.sm { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; overflow: auto; scrollbar-width: thin; }
+.sm-meter { display: grid; gap: 3px; }
+.sm-line { display: flex; justify-content: space-between; font-size: var(--fs-sm); }
+.sm-line b { font-variant-numeric: tabular-nums; font-weight: var(--fw-semi); }
+.sm-bar { height: 6px; border-radius: 3px; background: var(--vex-elevated); overflow: hidden; }
+.sm-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
+.sm-meter[data-level='warn'] .sm-bar i { background: var(--vex-warn, #d9a441); }
+.sm-meter[data-level='high'] .sm-bar i { background: var(--vex-danger); }
+.sm-meter small { color: var(--vex-text-dim); font-size: var(--fs-xs); }
+.sm-net { display: flex; gap: 14px; align-items: baseline; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.sm-net span:first-child { flex: 1; }
+.sm-nobattery { color: var(--vex-text-dim); font-size: var(--fs-sm); }
+.sm-problem { color: var(--vex-danger); font-size: var(--fs-sm); }
+.sm-foot { display: flex; gap: 6px; align-items: center; margin-top: auto; font-size: var(--fs-xs); color: var(--vex-text-dim); }
+@media (prefers-reduced-motion: reduce) { .sm-bar i { transition: none; } }
