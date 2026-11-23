@@ -19,6 +19,16 @@
         "l"
       ],
       "defaultSize": "m"
+    },
+    {
+      "id": "notes",
+      "title": "Notes",
+      "description": "Quick plain-text notes with search and pinning, saved on this PC. Nothing is sent anywhere.",
+      "sizes": [
+        "m",
+        "l"
+      ],
+      "defaultSize": "l"
     }
   ]
 }

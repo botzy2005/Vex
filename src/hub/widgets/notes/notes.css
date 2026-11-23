@@ -1,0 +1,18 @@
+.notes { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+.notes-bar { display: flex; align-items: center; gap: 6px; flex: none; }
+.notes-search { flex: 1; min-width: 0; height: var(--ctl-sm); border-radius: var(--r-sm); border: 1px solid var(--vex-line); background: var(--vex-elevated); color: var(--vex-text); padding: 0 10px; font: inherit; }
+.notes-search:focus-visible, .notes-area:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.notes-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; overflow: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
+.notes-row { width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'title when' 'prev prev'; gap: 2px 8px; text-align: left; padding: 7px 9px; border: 1px solid transparent; border-radius: var(--r-sm); background: var(--vex-elevated); color: var(--vex-text); font: inherit; cursor: pointer; }
+.notes-row:hover { border-color: var(--vex-line); }
+.notes-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nr-title { grid-area: title; font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nr-pin { color: var(--accent); margin-right: 6px; font-size: 9px; vertical-align: middle; }
+.nr-prev { grid-area: prev; color: var(--vex-text-dim); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nr-prev:empty { display: none; }
+.nr-when { grid-area: when; color: var(--vex-text-faint); font-size: var(--fs-xs); align-self: center; }
+.notes-empty { color: var(--vex-text-dim); font-size: var(--fs-sm); padding: 14px 2px; }
+.notes-area { flex: 1; min-height: 0; resize: none; border-radius: var(--r-sm); border: 1px solid var(--vex-line); background: var(--vex-elevated); color: var(--vex-text); padding: 8px 10px; font: inherit; line-height: 1.45; scrollbar-width: thin; }
+.notes-foot { display: flex; gap: 10px; align-items: center; font-size: var(--fs-xs); color: var(--vex-text-faint); flex: none; }
+.notes-warn { color: var(--vex-text-dim); font-size: var(--fs-sm); }
+.notes-error { color: var(--vex-danger); font-size: var(--fs-sm); }

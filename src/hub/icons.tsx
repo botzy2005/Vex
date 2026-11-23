@@ -53,3 +53,6 @@ export const PinOutlineIcon = (p: P) => (
 export const TimerIcon = (p: P) => (
   <svg {...base(p)}><circle cx="12" cy="13.500" r="7" /><path d="M12 9.500v4l2.500 1.500M9.500 3.500h5" /></svg>
 );
+export const NoteIcon = (p: P) => (
+  <svg {...base(p)}><path d="M6 3.5h9l3.5 3.5v13a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5Z" /><path d="M14.5 3.5V7.5h4M8.5 12h7M8.5 15.5h5" /></svg>
+);

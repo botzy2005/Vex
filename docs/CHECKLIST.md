@@ -255,3 +255,22 @@ Needs your laptop (the native timer scheduler and the island window are only com
 - [ ] The card looks right at both sizes, in light and dark theme
 
 Known limits: there is no Windows desktop notification for a phase end (the chime plays from the island page; VEX's notification code only reads Windows notifications); no per-task labels or long-term statistics; the compact island does not show the countdown yet (stage 15); the chime needs the island page to be running (it always is while VEX runs). The chime and the status line have not been heard or seen on real hardware.
+
+## Notes widget (Widgets Hub, stage 10)
+
+Built and tested in the sandbox (vitest, Playwright against the simulated backend):
+- A searchable list and a plain-text editor in one card (sizes M and L). New note, open, edit, Pin/Unpin, Delete (asks first, Keep cancels). Pinned notes first, then most recently edited. Title is the first line, the rest shows as a one-line preview, with "5 min ago" style times.
+- Search: every word must appear, case-insensitive, anywhere in the note.
+- Saving: a moment after each keystroke, and immediately when you leave the editor, close the Hub or remove the card; a failing save shows its message. Removing and re-adding the card keeps the notes.
+- Limits: 8000 characters per note, 60 notes, and the stored document is kept well under the Hub's 512 KB cap (an edit that would overflow it is refused; shrinking is always allowed). A note you never typed into is not kept.
+- Plain text only: markup-looking text is shown literally; non-Latin text and emoji round-trip. A damaged saved file is repaired (bad and duplicate entries dropped, ids never reused).
+- Privacy: notes stay on this PC in the Hub's data folder and are never sent anywhere or given to the AI.
+
+Needs your laptop:
+- [ ] Add Notes from the gallery, write a note, close the Hub window, reopen it: the note is there
+- [ ] Quit VEX from the tray and start it again: the notes are still there
+- [ ] Type quickly in a long note: no lag, and no lost characters when you click Back straight away
+- [ ] Paste a large block of text (over 8000 characters): it is cut at the limit without a crash
+- [ ] The editor and list look right at both card sizes, in light and dark theme, and with Windows text scaling
+
+Known limits: plain text only (no formatting, checklists, images or attachments); no tags or folders; no export or import yet; notes are not synced between PCs; undo is the text box's own (Ctrl+Z) and does not undo a deletion.
