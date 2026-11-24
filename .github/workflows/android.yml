@@ -1,0 +1,116 @@
+name: android
+
+# Builds the VEX Connect Android app (android/). Independent of the Windows workflow: it only runs when
+# Android files change (or when started by hand), and the Windows workflow does not depend on it.
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: android
+    env:
+      GRADLE_VERSION: "8.10.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The Android SDK is preinstalled on GitHub's Ubuntu runners; licences are accepted here so a missing
+      # platform could be installed by Gradle if the runner image ever changes.
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Prepare the fixed debug signing key
+        id: signing
+        env:
+          KS_B64: ${{ secrets.VEX_DEBUG_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.VEX_DEBUG_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.VEX_DEBUG_KEY_ALIAS }}
+          KS_KEYPASS: ${{ secrets.VEX_DEBUG_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ]; then
+            ks="$RUNNER_TEMP/vex-debug.jks"
+            echo "$KS_B64" | base64 -d > "$ks"
+            {
+              echo "VEX_DEBUG_KEYSTORE_FILE=$ks"
+              echo "VEX_DEBUG_KEYSTORE_PASSWORD=$KS_PASS"
+              echo "VEX_DEBUG_KEY_ALIAS=$KS_ALIAS"
+              echo "VEX_DEBUG_KEY_PASSWORD=${KS_KEYPASS:-$KS_PASS}"
+            } >> "$GITHUB_ENV"
+            echo "fixed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::The fixed debug signing secrets are not set. Building with a temporary debug key: this APK cannot be installed over an APK from another run (uninstall first)."
+            echo "fixed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Unit tests
+        run: gradle --no-daemon --stacktrace :core:domain:test :core:data:testDebugUnitTest :core:designsystem:testDebugUnitTest :app:testDebugUnitTest
+
+      - name: Build the debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Inspect the APK
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $bt"
+          ls -l "$apk"
+          echo "--- permissions requested ---"
+          "$bt/aapt2" dump permissions "$apk" | tee permissions.txt
+          if grep -q "android.permission.INTERNET" permissions.txt; then
+            echo "::error::Stage 1 must not request the INTERNET permission."
+            exit 1
+          fi
+          echo "--- signing certificate ---"
+          "$bt/apksigner" verify --print-certs "$apk" | tee certs.txt
+          sha256sum "$apk" | tee apk.sha256
+          {
+            echo "### VEX Connect debug APK"
+            echo "- Fixed signing key used: \`${{ steps.signing.outputs.fixed }}\`"
+            echo "- SHA-256 of the APK: \`$(cut -d' ' -f1 apk.sha256)\`"
+            echo '- Signing certificate:'
+            echo '```'
+            grep -E "Signer #1 certificate (DN|SHA-256)" certs.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vex-connect-debug-apk
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/apk.sha256
+            android/certs.txt
+            android/permissions.txt
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-reports
+          path: |
+            android/**/build/reports/tests/
+            android/**/build/test-results/
+          if-no-files-found: ignore
