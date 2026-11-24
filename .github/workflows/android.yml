@@ -92,7 +92,7 @@ jobs:
             echo "- SHA-256 of the APK: \`$(cut -d' ' -f1 apk.sha256)\`"
             echo '- Signing certificate:'
             echo '```'
-            grep -E "Signer #1 certificate (DN|SHA-256)" certs.txt
+            grep -E "certificate (DN|SHA-256)" certs.txt || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

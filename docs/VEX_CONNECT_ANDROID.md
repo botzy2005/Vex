@@ -3,8 +3,9 @@
 ## What this build is
 
 The Android app foundation: launch screen, first-run introduction, Home, Devices, Transfers and Settings screens, dark and
-light themes, local settings and an (empty) local database. **It does not connect to anything.** It requests no permissions
-(the CI build fails if the Internet permission ever appears in this stage).
+light themes, local settings and an (empty) local database. **It does not connect to anything.** It requests no permissions of its own
+(the only entry in the APK is AndroidX's internal `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, which is private to the app; CI fails if
+the Internet permission ever appears in this stage).
 
 ## Where the APK comes from
 
