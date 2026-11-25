@@ -190,7 +190,7 @@ class LinkManager(
         else -> "Could not connect"
     }
 
-    private suspend fun session(device: PairedDevice, waitForAnnouncement: Boolean): Outcome = withContext(Dispatchers.IO) {
+    private suspend fun session(device: PairedDevice, waitForAnnouncement: Boolean): Outcome = withContext<Outcome>(Dispatchers.IO) {
         val pcPublic = device.publicKeyHex.hexToBytes() ?: return@withContext Outcome.Ended("Saved PC data is damaged. Remove it and pair again.", false)
         val pin = device.tlsFingerprintHex.hexToBytes() ?: return@withContext Outcome.Ended("Saved PC data is damaged. Remove it and pair again.", false)
 
@@ -244,7 +244,7 @@ class LinkManager(
             devices.touch(device.id, clockMillis(), chosen.first, chosen.second)
             setLink(device.id, DeviceLink(LinkPhase.Connected))
 
-            coroutineScope {
+            coroutineScope<Outcome> {
                 val pinger = launch {
                     var n = 0UL
                     while (isActive) {
