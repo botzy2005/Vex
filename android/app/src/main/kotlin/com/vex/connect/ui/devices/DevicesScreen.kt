@@ -185,9 +185,10 @@ private fun DeviceCard(row: DeviceRowState, onRename: () -> Unit, onToggle: () -
             }
             StatusPill(pill, tone)
         }
-        if (row.link.phase != LinkPhase.Connected && row.link.detail != null) {
+        val detail = row.link.detail
+        if (row.link.phase != LinkPhase.Connected && detail != null) {
             Text(
-                row.link.detail,
+                detail,
                 style = MaterialTheme.typography.bodySmall,
                 color = VexTheme.extras.textDim,
                 modifier = Modifier.padding(top = Spacing.sm),
