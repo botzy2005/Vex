@@ -253,21 +253,28 @@ class LinkManager(
                         runCatching { io.write(client.seal(SessionMessage.Ping(n))) }
                     }
                 }
-                try {
-                    while (true) {
-                        val frame = io.read() ?: return@coroutineScope Outcome.Ended("Disconnected", true)
-                        when (val m = client.open(frame)) {
-                            is SessionMessage.Ping -> io.write(client.seal(SessionMessage.Pong(m.n)))
-                            is SessionMessage.Pong -> {}
-                            is SessionMessage.Bye -> return@coroutineScope Outcome.Ended("The PC disconnected", true)
-                            is SessionMessage.Revoked -> return@coroutineScope Outcome.RemovedByPc
-                            is SessionMessage.Error -> return@coroutineScope Outcome.Ended("The PC reported an error", true)
-                            is SessionMessage.Hello -> return@coroutineScope Outcome.Ended("Unexpected message from the PC", true)
+                val ended: Outcome = try {
+                    var result: Outcome? = null
+                    while (result == null) {
+                        val frame = io.read()
+                        result = if (frame == null) {
+                            Outcome.Ended("Disconnected", true)
+                        } else {
+                            when (val m = client.open(frame)) {
+                                is SessionMessage.Ping -> { io.write(client.seal(SessionMessage.Pong(m.n))); null }
+                                is SessionMessage.Pong -> null
+                                is SessionMessage.Bye -> Outcome.Ended("The PC disconnected", true)
+                                is SessionMessage.Revoked -> Outcome.RemovedByPc
+                                is SessionMessage.Error -> Outcome.Ended("The PC reported an error", true)
+                                is SessionMessage.Hello -> Outcome.Ended("Unexpected message from the PC", true)
+                            }
                         }
                     }
+                    checkNotNull(result)
                 } finally {
                     pinger.cancel()
                 }
+                ended
             }
         } finally {
             closer?.dispose()
