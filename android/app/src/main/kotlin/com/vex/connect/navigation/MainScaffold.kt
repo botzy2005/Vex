@@ -27,8 +27,12 @@ import androidx.navigation.compose.rememberNavController
 import com.vex.connect.ui.AppViewModelFactory
 import com.vex.connect.ui.devices.DevicesScreen
 import com.vex.connect.ui.home.HomeScreen
+import com.vex.connect.ui.pair.PairScreen
 import com.vex.connect.ui.settings.SettingsScreen
 import com.vex.connect.ui.transfers.TransfersScreen
+
+/** The pairing flow is a full screen above the tabs (no bottom bar). */
+const val PAIR_ROUTE = "pair"
 
 /** The four top-level destinations, in bottom-bar order. */
 enum class Destination(val route: String, val label: String, val icon: ImageVector) {
@@ -47,7 +51,7 @@ fun MainScaffold(factory: AppViewModelFactory) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+            if (current?.route != PAIR_ROUTE) NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 Destination.entries.forEach { dest ->
                     val selected = current?.hierarchy?.any { it.route == dest.route } == true
                     NavigationBarItem(
@@ -79,8 +83,9 @@ fun MainScaffold(factory: AppViewModelFactory) {
             popEnterTransition = { fadeIn() },
             popExitTransition = { fadeOut() },
         ) {
-            composable(Destination.Home.route) { HomeScreen(factory, inner) }
-            composable(Destination.Devices.route) { DevicesScreen(factory, inner) }
+            composable(Destination.Home.route) { HomeScreen(factory, inner, onPair = { nav.navigate(PAIR_ROUTE) }) }
+            composable(Destination.Devices.route) { DevicesScreen(factory, inner, onPair = { nav.navigate(PAIR_ROUTE) }) }
+            composable(PAIR_ROUTE) { PairScreen(factory, inner, onClose = { nav.popBackStack() }) }
             composable(Destination.Transfers.route) { TransfersScreen(factory, inner) }
             composable(Destination.Settings.route) { SettingsScreen(factory, inner) }
         }

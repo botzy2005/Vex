@@ -86,3 +86,12 @@ Not covered yet (needs a device): visual appearance, animation smoothness, gestu
 * The default theme is Dark; Settings offers System, Dark and Light.
 * Anything not built yet is shown as "Planned". Counters and lists read from the real local database, which is simply empty.
 * Motion appears only for real progress: the launch animation and page changes, and a pulsing ring reserved for "connecting".
+
+
+## Stage 2 build notes
+The app now includes a Rust library (the shared VEX Link protocol). The CI job builds it for arm64 with `cargo-ndk`
+(`scripts/android-native.sh`), generates its Kotlin wrapper with UniFFI, and then builds the APK. Nothing generated is
+committed. A local build needs Rust, the `aarch64-linux-android` target, `cargo install cargo-ndk`, and `ANDROID_NDK_HOME`;
+run `bash scripts/android-native.sh` once before Gradle. The APK now requests INTERNET, ACCESS_NETWORK_STATE and CAMERA.
+Installing over the Stage 1 APK works only if both were signed with the same key (see the signing section above).
+Test steps: `docs/VEX_CONNECT_STAGE2.md`.

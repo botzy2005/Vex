@@ -37,6 +37,7 @@ import type {
 } from '../shared/types';
 import type { Backend, Unsub } from './backend';
 import { createTestLauncher, type LauncherHarness } from './test_launcher';
+import { createTestConnect, type ConnectHarness } from './test_connect';
 import { chimeListeners } from '../shared/chime';
 import { clampPercent, stepPercent } from '../island/volume';
 import { createTestHub, type HubHarness } from './test_hub';
@@ -123,6 +124,8 @@ export interface Harness {
   resetShots(): void;
   /** Quick Launcher stand-in (fixture apps and files, run log, scripted AI). */
   launcher: LauncherHarness;
+  /** VEX Connect stand-in (play the phone: scan, answer the code, connect). */
+  connect: ConnectHarness;
   /** Widgets Hub stand-in (layout, data, statuses, timers, probe widgets). */
   hub: HubHarness;
 }
@@ -415,9 +418,11 @@ export function createTestBackend(): Backend {
 
   const launcher = createTestLauncher(() => settings);
   const hub = createTestHub();
+  const connect = createTestConnect(() => settings);
 
   const harness: Harness = {
     launcher: launcher.harness,
+    connect: connect.harness,
     hub: hub.harness,
     patchSettings: async () => {},
     setSession(partial) {
@@ -913,6 +918,7 @@ export function createTestBackend(): Backend {
     },
     onAssistantState: (cb) => sub(assistantSubs, cb),
     ...hub.api,
+    ...connect.api,
     ...(launcher.api as Pick<Backend, 'launcherSearch' | 'launcherRun' | 'launcherHide' | 'launcherState' | 'launcherSetPin' | 'launcherRecordSearch' | 'launcherClearHistory' | 'launcherRefresh' | 'launcherAppIcon' | 'launcherAiInfo' | 'launcherAiSend' | 'onLauncherAi' | 'onLauncherOpen' | 'onLauncherClose' | 'onLauncherIndex'>),
   };
 }

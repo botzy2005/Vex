@@ -10,6 +10,17 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.vex.connect.ui.VexApp
 
 class MainActivity : ComponentActivity() {
+    // Links to paired PCs are kept only while the app is on screen (no background service in this stage).
+    override fun onStart() {
+        super.onStart()
+        (application as VexConnectApp).container.links.setVisible(true)
+    }
+
+    override fun onStop() {
+        (application as VexConnectApp).container.links.setVisible(false)
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)

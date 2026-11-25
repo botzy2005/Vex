@@ -405,6 +405,25 @@ impl Default for Launcher {
     }
 }
 
+/// VEX Connect (phone pairing). Off by default: while off nothing listens and nothing is advertised.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Connect {
+    pub enabled: bool,
+    /// The name phones see. Empty means "use this computer's name".
+    pub device_name: String,
+    /// TCP port VEX listens on while Connect is on (phones also find it through mDNS).
+    pub port: u16,
+}
+
+pub const DEFAULT_CONNECT_PORT: u16 = 47821;
+
+impl Default for Connect {
+    fn default() -> Self {
+        Self { enabled: false, device_name: String::new(), port: DEFAULT_CONNECT_PORT }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -417,6 +436,7 @@ pub struct Settings {
     pub clipboard: Clipboard,
     pub screenshot: Screenshot,
     pub launcher: Launcher,
+    pub connect: Connect,
 }
 
 impl Default for Appearance {
@@ -499,6 +519,7 @@ impl Default for Settings {
             clipboard: Clipboard::default(),
             screenshot: Screenshot::default(),
             launcher: Launcher::default(),
+            connect: Connect::default(),
         }
     }
 }
@@ -584,6 +605,8 @@ impl Settings {
         ai.ollama_num_ctx = ai.ollama_num_ctx.clamp(1024, 32768);
 
         self.clipboard.max_items = self.clipboard.max_items.clamp(10, 200);
+        self.connect.port = self.connect.port.clamp(1024, 65535);
+        self.connect.device_name = crate::connect::clean_name(&self.connect.device_name);
 
         let sh = &mut self.screenshot;
         sh.save_dir = sh.save_dir.chars().filter(|c| !c.is_control()).take(400).collect::<String>().trim().to_string();

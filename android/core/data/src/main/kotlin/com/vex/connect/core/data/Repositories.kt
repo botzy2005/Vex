@@ -59,6 +59,13 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
 
 class RoomDeviceRepository(private val dao: DeviceDao) : DeviceRepository {
     override val devices: Flow<List<PairedDevice>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+    override suspend fun snapshot(): List<PairedDevice> = dao.all().map { it.toDomain() }
+    override suspend fun get(id: String): PairedDevice? = dao.find(id)?.toDomain()
+    override suspend fun upsert(device: PairedDevice) = dao.upsert(device.toEntity())
+    override suspend fun rename(id: String, name: String) = dao.rename(id, name)
+    override suspend fun remove(id: String) = dao.remove(id)
+    override suspend fun clearAll() = dao.clear()
+    override suspend fun touch(id: String, seenMillis: Long, address: String, port: Int) = dao.touch(id, seenMillis, address, port)
 }
 
 class RoomTransferRepository(private val dao: TransferDao) : TransferRepository {

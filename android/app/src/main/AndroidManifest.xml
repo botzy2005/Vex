@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Stage 1 requests no permissions on purpose: there is no networking, pairing or file transfer yet.
-         Each later stage adds only what it needs (see docs/VEX_CONNECT_ARCHITECTURE.md, section 8.1). -->
+    <!-- Stage 2 permissions, each with one purpose (docs/VEX_CONNECT_ARCHITECTURE.md, section 8.1):
+         INTERNET: talk to your own PC over the local network (no servers, nothing leaves your network yet).
+         ACCESS_NETWORK_STATE: tell "no Wi-Fi" apart from "PC not found".
+         CAMERA: scan the pairing QR code. Asked only when you tap Scan; pairing also works by pasting the code. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".VexConnectApp"

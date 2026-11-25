@@ -9,3 +9,5 @@ captures/
 *.jks
 *.keystore
 !gradle/wrapper/gradle-wrapper.jar
+# Built from crates/vex-link-ffi by scripts/android-native.sh
+core/link/src/generated/

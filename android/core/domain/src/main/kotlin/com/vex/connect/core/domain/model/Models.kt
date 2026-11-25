@@ -12,13 +12,21 @@ data class AppSettings(
 
 enum class DeviceKind { Windows, Android }
 
-/** A PC (or later another phone) this phone has been paired with. Nothing creates these before Stage 2. */
+/** A PC (or later another phone) this phone has been paired with. */
 data class PairedDevice(
+    /** 32 hex characters: the first half of SHA-256 over the PC's public key. */
     val id: String,
     val name: String,
     val kind: DeviceKind,
     val pairedAtMillis: Long,
     val lastSeenMillis: Long?,
+    /** Lowercase hex of the PC's 32-byte public key (public information; no secret is ever stored here). */
+    val publicKeyHex: String = "",
+    /** Lowercase hex of SHA-256 over the PC's TLS certificate; the phone accepts only that certificate. */
+    val tlsFingerprintHex: String = "",
+    /** Where the PC was last reached, tried first next time. */
+    val lastAddress: String? = null,
+    val lastPort: Int? = null,
 )
 
 enum class TransferDirection { Sent, Received }
@@ -38,8 +46,7 @@ data class TransferRecord(
 )
 
 /**
- * How this phone relates to a PC. Only [NotPaired] can occur in Stage 1 (there is no networking yet); the other
- * states exist so the UI components are built and tested for them before the networking stages need them.
+ * How this phone relates to a PC. [NotPaired] until a PC is paired; then the state of the link to the PC.
  */
 sealed interface ConnectionState {
     data object NotPaired : ConnectionState

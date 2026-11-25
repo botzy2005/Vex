@@ -1,0 +1,15 @@
+[package]
+name = "vex-link-ffi"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Kotlin bindings (UniFFI) for the VEX Link protocol, used by the Android app. Contains no logic of its own."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "vex_link_ffi"
+
+[dependencies]
+vex-link = { path = "../vex-link" }
+uniffi = { version = "0.28", default-features = false }
+thiserror = "2"

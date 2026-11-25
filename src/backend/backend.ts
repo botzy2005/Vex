@@ -31,6 +31,7 @@ import type {
   HubStatusEntry,
   HubTimer,
   TimerFinished,
+  ConnectStatus,
   WidgetDef,
   TransportCommand,
   UpdateResult,
@@ -248,4 +249,21 @@ export interface Backend {
   timerSetLabel(id: number, label: string): Promise<void>;
   onTimers(cb: (t: HubTimer[]) => void): Promise<Unsub>;
   onTimerFinished(cb: (f: TimerFinished) => void): Promise<Unsub>;
+
+  /**
+   * VEX Connect (phone pairing). Turning it on and off is a setting (`connect.enabled`); everything else is here.
+   * All calls reject with a readable reason.
+   */
+  connectOpen(): Promise<void>;
+  connectStatus(): Promise<ConnectStatus>;
+  /** Show a new QR code (replaces any pairing in progress). */
+  connectBeginPairing(): Promise<void>;
+  connectCancelPairing(): Promise<void>;
+  /** Answer the 6-digit code comparison. */
+  connectConfirmPairing(accept: boolean): Promise<void>;
+  connectRenameDevice(id: string, name: string): Promise<void>;
+  connectDisconnectDevice(id: string): Promise<void>;
+  /** Remove a phone's trust. It is told, now or the next time it connects. */
+  connectRevokeDevice(id: string): Promise<void>;
+  onConnectChanged(cb: () => void): Promise<Unsub>;
 }

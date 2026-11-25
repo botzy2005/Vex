@@ -8,6 +8,7 @@
 
 mod ai;
 mod clipboard;
+mod connect;
 mod hub;
 #[cfg(windows)]
 mod display_windows;
@@ -241,6 +242,9 @@ fn update_settings(
     }
     if next.screenshot.history != old_history {
         app.state::<screenshot::Shots>().set_history_mode(next.screenshot.history);
+    }
+    if let Some(h) = app.try_state::<connect::ConnectHandle>() {
+        h.apply(&next.connect);
     }
     if next.launcher != old_launcher {
         let handle = app.state::<launcher::LauncherHandle>();
@@ -570,6 +574,13 @@ pub fn run() {
 
             app.manage(hub::HubHandle::start(app.handle(), dir.clone()));
 
+            match connect::ConnectHandle::start(app.handle(), dir.clone(), secrets::default_store(), &startup_settings.connect) {
+                Ok(h) => {
+                    app.manage(h);
+                }
+                Err(e) => eprintln!("vex: VEX Connect is unavailable: {e}"),
+            }
+
             let launcher_cfg = startup_settings.launcher.clone();
             app.manage(launcher::LauncherHandle::start(app.handle(), dir.clone(), &launcher_cfg));
             if let Err(e) = launcher::build_window(app.handle()) {
@@ -590,6 +601,7 @@ pub fn run() {
                 None::<&str>,
             )?;
             let widgets = MenuItem::with_id(app, "hub", "Widgets Hub", true, None::<&str>)?;
+            let phone = MenuItem::with_id(app, "connect", "VEX Connect…", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show VEX", true, None::<&str>)?;
             let reset_pos = MenuItem::with_id(app, "reset-position", "Reset island position", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
@@ -600,6 +612,7 @@ pub fn run() {
                     &show,
                     &toggle,
                     &widgets,
+                    &phone,
                     &reset_pos,
                     &settings,
                     &PredefinedMenuItem::separator(app)?,
@@ -623,6 +636,12 @@ pub fn run() {
                         let app = app.clone();
                         std::thread::spawn(move || {
                             let _ = hub::open_window(&app, None);
+                        });
+                    }
+                    "connect" => {
+                        let app = app.clone();
+                        std::thread::spawn(move || {
+                            let _ = connect::open_window(&app);
                         });
                     }
                     "reset-position" => reset_island_position(app),
@@ -734,6 +753,14 @@ pub fn run() {
             hub::timer_delete,
             hub::timer_set_duration,
             hub::timer_set_label,
+            connect::connect_open,
+            connect::connect_status,
+            connect::connect_begin_pairing,
+            connect::connect_cancel_pairing,
+            connect::connect_confirm_pairing,
+            connect::connect_rename_device,
+            connect::connect_disconnect_device,
+            connect::connect_revoke_device,
             launcher::launcher_hide,
             launcher::launcher_search,
             launcher::launcher_run,

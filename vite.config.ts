@@ -18,6 +18,7 @@ export default defineConfig({
         overlay: resolve(import.meta.dirname, 'overlay.html'),
         launcher: resolve(import.meta.dirname, 'launcher.html'),
         hub: resolve(import.meta.dirname, 'hub.html'),
+        connect: resolve(import.meta.dirname, 'connect.html'),
       },
     },
   },

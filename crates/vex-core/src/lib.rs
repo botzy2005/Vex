@@ -7,6 +7,7 @@
 pub mod ai;
 pub mod chat;
 pub mod clipboard;
+pub mod connect;
 pub mod hub;
 pub mod jsonfile;
 pub mod launcher;

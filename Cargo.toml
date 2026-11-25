@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/vex-core", "src-tauri"]
+members = ["crates/vex-core", "crates/vex-link", "crates/vex-link-ffi", "crates/uniffi-bindgen", "src-tauri"]
 resolver = "2"
 
 [profile.release]

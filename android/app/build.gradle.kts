@@ -11,11 +11,11 @@ android {
     defaultConfig {
         applicationId = "com.vex.connect"
         minSdk = 28
-        // Stage 1 targets API 35 (Android 15, the OxygenOS 15 release on the test phone).
-        // Moving to API 37 brings the ACCESS_LOCAL_NETWORK permission; that is decided in Stage 2.
+        // Targets API 35 (Android 15, the OxygenOS 15 release on the test phone). Staying below the API level that
+        // introduces the separate local-network permission keeps the permission list to the three the app really needs.
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-stage1"
+        versionCode = 2
+        versionName = "0.2.0-stage2"
     }
 
     // Fixed debug signing key (see docs/VEX_CONNECT_ANDROID.md). CI passes it through environment variables
@@ -62,6 +62,14 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
+    implementation(project(":core:link"))
+
+    // QR scanning: CameraX for the preview, ML Kit (bundled model, no Google Play services needed) to read the code.
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     val bom = platform(libs.androidx.compose.bom)
     implementation(bom)

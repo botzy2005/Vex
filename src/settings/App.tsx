@@ -7,10 +7,11 @@ import { ClipboardPage } from './ClipboardPage';
 import { AppearancePage } from './AppearancePage';
 import { ScreenshotPage } from './ScreenshotPage';
 import { LauncherPage } from './LauncherPage';
+import { ConnectPage } from './ConnectPage';
 import { NotificationsPage } from './NotificationsPage';
 import { CommitText, HotkeyInput, Row, Segmented, Select, Slider, Toggle } from './controls';
 
-type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'notifications' | 'clipboard' | 'screenshot' | 'launcher' | 'developer' | 'about';
+type Page = 'appearance' | 'island' | 'music' | 'assistant' | 'notifications' | 'clipboard' | 'screenshot' | 'launcher' | 'connect' | 'developer' | 'about';
 const PAGES: Array<{ id: Page; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'island', label: 'Island' },
@@ -20,6 +21,7 @@ const PAGES: Array<{ id: Page; label: string }> = [
   { id: 'clipboard', label: 'Clipboard' },
   { id: 'screenshot', label: 'Screenshot' },
   { id: 'launcher', label: 'Launcher' },
+  { id: 'connect', label: 'Phone' },
   { id: 'developer', label: 'Developer' },
   { id: 'about', label: 'About' },
 ];
@@ -69,6 +71,7 @@ export function SettingsApp() {
         {page === 'clipboard' && <ClipboardPage s={settings} update={update} />}
         {page === 'screenshot' && <ScreenshotPage s={settings} update={update} />}
         {page === 'launcher' && <LauncherPage s={settings} update={update} />}
+        {page === 'connect' && <ConnectPage s={settings} update={update} />}
         {page === 'notifications' && <NotificationsPage s={settings} update={update} />}
         {page === 'developer' && <DeveloperPage s={settings} />}
         {page === 'about' && <AboutPage />}

@@ -83,5 +83,10 @@
     "maxResults": 8,
     "rememberRecents": true,
     "fileFolders": []
+  },
+  "connect": {
+    "enabled": false,
+    "deviceName": "",
+    "port": 47821
   }
 }

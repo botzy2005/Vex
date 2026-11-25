@@ -10,7 +10,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Icon
@@ -32,6 +34,7 @@ import com.vex.connect.core.designsystem.components.StatusOrb
 import com.vex.connect.core.designsystem.components.StatusPill
 import com.vex.connect.core.designsystem.components.StepRow
 import com.vex.connect.core.designsystem.components.Tone
+import com.vex.connect.core.designsystem.components.VexButton
 import com.vex.connect.core.designsystem.components.VexCard
 import com.vex.connect.core.designsystem.components.VexMark
 import com.vex.connect.core.designsystem.theme.Spacing
@@ -42,11 +45,11 @@ import com.vex.connect.ui.presentConnection
 import com.vex.connect.core.domain.model.ConnectionState
 
 @Composable
-fun HomeScreen(factory: AppViewModelFactory, contentPadding: PaddingValues) {
+fun HomeScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, onPair: () -> Unit) {
     val vm: HomeViewModel = viewModel(factory = factory)
     val state by vm.state.collectAsStateWithLifecycle()
-    // Stage 1 has no networking, so the only possible state is "not paired".
-    val connection = presentConnection(ConnectionState.NotPaired)
+    val connection = presentConnection(state.connection)
+    val notPaired = state.connection is ConnectionState.NotPaired
 
     LazyColumn(
         contentPadding = PaddingValues(
@@ -70,19 +73,27 @@ fun HomeScreen(factory: AppViewModelFactory, contentPadding: PaddingValues) {
         item {
             VexCard {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    StatusOrb(tone = connection.tone, icon = Icons.Rounded.LinkOff, pulsing = connection.pulsing)
+                    StatusOrb(tone = connection.tone, icon = if (state.connection is ConnectionState.Connected) Icons.Rounded.Link else Icons.Rounded.LinkOff, pulsing = connection.pulsing)
                     Text(
                         connection.title,
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = Spacing.md),
                     )
                     Text(
-                        "This phone is not linked to any PC. Pairing and file transfer are not part of this version, so nothing is being sent or received.",
+                        when (state.connection) {
+                            is ConnectionState.NotPaired -> "Pair this phone with VEX on your PC. Pairing only works on the same Wi-Fi network."
+                            is ConnectionState.Connected -> "Linked over your local network. Nothing is sent or received yet: file transfer arrives in a later version."
+                            is ConnectionState.Connecting -> "Looking for your PC on this network."
+                            is ConnectionState.Offline -> "Open VEX on your PC, turn VEX Connect on, and make sure both are on the same Wi-Fi."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = VexTheme.extras.textDim,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = Spacing.sm),
                     )
+                    if (notPaired) {
+                        VexButton("Pair a PC", onPair, Modifier.fillMaxWidth().padding(top = Spacing.lg), leading = Icons.Rounded.QrCodeScanner)
+                    }
                 }
             }
         }
@@ -92,8 +103,8 @@ fun HomeScreen(factory: AppViewModelFactory, contentPadding: PaddingValues) {
                 Stat("Transfers", state.transferCount.toString(), Modifier.weight(1f))
             }
         }
-        item { SectionLabel("How pairing will work") }
-        item {
+        if (notPaired) item { SectionLabel("How pairing works") }
+        if (notPaired) item {
             VexCard {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                     StepRow(1, "Open VEX on your PC", "Choose Add device. VEX shows a QR code that expires after a couple of minutes.")

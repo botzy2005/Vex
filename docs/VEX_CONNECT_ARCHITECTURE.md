@@ -538,3 +538,13 @@ Also please confirm: the **project name for the app** (assumed "VEX Connect", An
 
 Not retrieved (marked **[VERIFY]** above): the Android background-clipboard page, Android Keystore X25519 support, notification-listener
 redaction rules, current VPS prices, `webrtc-rs` maturity, and iroh's Android bindings.
+
+
+## Stage 2 implementation notes (deviations from the plan above)
+* The LAN transport is TLS 1.3 (pinned self-signed certificate) carrying VEX Link length-prefixed frames. There is no
+  WebSocket layer on the LAN.
+* There is no separate `vex-connect-core` crate: the rules live in `vex-core::connect` and the protocol in `vex-link`.
+* The listener binds all interfaces but drops any connection not coming from a private/link-local address.
+* Pairing uses Noise `IKpsk2` (QR secret as PSK); Noise rekeying is deferred to the transfer stages.
+* New dependencies: snow, rustls/tokio-rustls, rcgen, tokio, mdns-sd, if-addrs, qrcode (PC); UniFFI, JNA, CameraX and ML Kit
+  bundled barcode scanning (phone).

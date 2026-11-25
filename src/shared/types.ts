@@ -91,6 +91,13 @@ export interface Settings {
     sound: boolean;
     history: ShotHistory;
   };
+  /** VEX Connect (phone pairing). Off by default. */
+  connect: {
+    enabled: boolean;
+    /** Empty means this computer's name. */
+    deviceName: string;
+    port: number;
+  };
   launcher: {
     enabled: boolean;
     /** Global shortcut that opens the launcher (empty disables it). */
@@ -569,3 +576,40 @@ export interface HubStatus {
   priority: number;
 }
 export type HubStatusEntry = HubStatus & { kind: string };
+
+/** VEX Connect, as the Connect window sees it. Holds no key material. */
+export interface ConnectDevice {
+  id: string;
+  name: string;
+  /** Short fingerprint (`a1b2-c3d4-e5f6-0718`) to compare with the phone. */
+  fingerprint: string;
+  addedMs: number;
+  lastSeenMs: number | null;
+  connected: boolean;
+}
+
+export type ConnectPairingState = 'waiting' | 'confirm' | 'waitingPeer' | 'paired' | 'declined' | 'expired' | 'failed';
+
+export interface ConnectPairing {
+  state: ConnectPairingState;
+  /** The QR code as an SVG document (only while `waiting`). */
+  qrSvg: string;
+  /** The same text as the QR code, for a phone that cannot scan (only while `waiting`). */
+  codeText: string;
+  expiresMs: number;
+  /** The 6-digit code both screens must show, like `123 456`. */
+  sas: string | null;
+  peerName: string | null;
+  message: string | null;
+}
+
+export interface ConnectStatus {
+  enabled: boolean;
+  listening: boolean;
+  port: number;
+  name: string;
+  error: string | null;
+  addresses: string[];
+  pairing: ConnectPairing | null;
+  devices: ConnectDevice[];
+}

@@ -17,6 +17,10 @@ data class DeviceEntity(
     val kind: String,
     @ColumnInfo(name = "paired_at") val pairedAt: Long,
     @ColumnInfo(name = "last_seen") val lastSeen: Long?,
+    @ColumnInfo(name = "public_key") val publicKey: String = "",
+    @ColumnInfo(name = "tls_fingerprint") val tlsFingerprint: String = "",
+    @ColumnInfo(name = "last_address") val lastAddress: String? = null,
+    @ColumnInfo(name = "last_port") val lastPort: Int? = null,
 )
 
 @Entity(tableName = "transfers")
@@ -41,6 +45,22 @@ fun DeviceEntity.toDomain() = PairedDevice(
     kind = kind.toEnumOr(DeviceKind.Windows),
     pairedAtMillis = pairedAt,
     lastSeenMillis = lastSeen,
+    publicKeyHex = publicKey,
+    tlsFingerprintHex = tlsFingerprint,
+    lastAddress = lastAddress,
+    lastPort = lastPort,
+)
+
+fun PairedDevice.toEntity() = DeviceEntity(
+    id = id,
+    name = name,
+    kind = kind.name,
+    pairedAt = pairedAtMillis,
+    lastSeen = lastSeenMillis,
+    publicKey = publicKeyHex,
+    tlsFingerprint = tlsFingerprintHex,
+    lastAddress = lastAddress,
+    lastPort = lastPort,
 )
 
 fun TransferEntity.toDomain() = TransferRecord(

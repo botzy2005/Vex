@@ -8,7 +8,17 @@ import com.vex.connect.core.domain.model.AppSettings
 import com.vex.connect.core.domain.model.PairedDevice
 import com.vex.connect.core.domain.model.ThemeMode
 import com.vex.connect.core.domain.model.TransferRecord
+import com.vex.connect.core.domain.model.ConnectionState
+import com.vex.connect.core.domain.model.DeviceLink
+import com.vex.connect.core.domain.model.LinkNotice
+import com.vex.connect.core.domain.model.PairingUi
 import com.vex.connect.core.domain.repository.DeviceRepository
+import com.vex.connect.core.domain.util.NearbyLabel
+import com.vex.connect.core.domain.util.labelNearby
+import com.vex.connect.core.domain.util.overallConnection
+import com.vex.connect.core.link.LinkManager
+import com.vex.connect.core.link.NsdDiscovery
+import com.vex.connect.core.link.PairingRunner
 import com.vex.connect.core.domain.repository.SettingsRepository
 import com.vex.connect.core.domain.repository.TransferRepository
 import com.vex.connect.core.domain.util.TransferFilter
@@ -30,18 +40,77 @@ class RootViewModel(private val settingsRepo: SettingsRepository) : ViewModel() 
     suspend fun finishOnboarding() = settingsRepo.setOnboardingDone(true)
 }
 
-data class HomeUiState(val pairedCount: Int = 0, val transferCount: Int = 0)
+data class HomeUiState(
+    val pairedCount: Int = 0,
+    val transferCount: Int = 0,
+    val connection: ConnectionState = ConnectionState.NotPaired,
+)
 
-class HomeViewModel(devices: DeviceRepository, transfers: TransferRepository) : ViewModel() {
-    val state: StateFlow<HomeUiState> = combine(devices.devices, transfers.transfers) { d, t ->
-        HomeUiState(pairedCount = d.size, transferCount = t.size)
+class HomeViewModel(devices: DeviceRepository, transfers: TransferRepository, links: LinkManager) : ViewModel() {
+    val state: StateFlow<HomeUiState> = combine(devices.devices, transfers.transfers, links.links) { d, t, l ->
+        HomeUiState(pairedCount = d.size, transferCount = t.size, connection = overallConnection(d, l))
     }.stateIn(viewModelScope, SHARE, HomeUiState())
 }
 
-class DevicesViewModel(devices: DeviceRepository, settings: SettingsRepository) : ViewModel() {
-    val devices: StateFlow<List<PairedDevice>> = devices.devices.stateIn(viewModelScope, SHARE, emptyList())
-    val phoneName: StateFlow<String?> =
-        settings.settings.map { it.deviceName }.stateIn(viewModelScope, SHARE, null)
+data class DeviceRowState(val device: PairedDevice, val link: DeviceLink, val fingerprint: String)
+
+data class DevicesUiState(
+    val rows: List<DeviceRowState> = emptyList(),
+    val nearby: List<NearbyLabel> = emptyList(),
+    val phoneName: String? = null,
+    val notice: LinkNotice? = null,
+)
+
+class DevicesViewModel(
+    devices: DeviceRepository,
+    settings: SettingsRepository,
+    private val links: LinkManager,
+    discovery: NsdDiscovery,
+) : ViewModel() {
+    val state: StateFlow<DevicesUiState> = combine(
+        devices.devices,
+        links.links,
+        discovery.found,
+        settings.settings,
+        links.notice,
+    ) { d, l, nearby, s, notice ->
+        DevicesUiState(
+            rows = d.map { DeviceRowState(it, l[it.id] ?: DeviceLink(), links.fingerprintOf(it)) },
+            nearby = labelNearby(nearby, d.map { it.id }.toSet()),
+            phoneName = s.deviceName,
+            notice = notice,
+        )
+    }.stateIn(viewModelScope, SHARE, DevicesUiState())
+
+    fun rename(id: String, raw: String): Boolean {
+        val cleaned = sanitizeDeviceName(raw) ?: return false
+        viewModelScope.launch { links.rename(id, cleaned) }
+        return true
+    }
+
+    fun disconnect(id: String) = links.disconnect(id)
+    fun reconnect(id: String) = links.reconnect(id)
+    fun remove(id: String) {
+        viewModelScope.launch { links.remove(id) }
+    }
+
+    fun dismissNotice(id: Long) = links.dismissNotice(id)
+}
+
+class PairViewModel(private val runner: PairingRunner) : ViewModel() {
+    val state: StateFlow<PairingUi> = runner.state
+
+    fun start(text: String) {
+        // The camera reports the same code on many frames; only the first one starts pairing.
+        if (runner.state.value is PairingUi.Idle) runner.start(text)
+    }
+    fun answer(accept: Boolean) = runner.answer(accept)
+    fun cancel() = runner.cancel()
+
+    override fun onCleared() {
+        // Leaving the screen abandons an unfinished pairing. A finished one is already saved; this only resets the screen.
+        runner.cancel()
+    }
 }
 
 data class TransfersUiState(
@@ -110,8 +179,9 @@ class AppViewModelFactory(private val c: AppContainer) : ViewModelProvider.Facto
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val vm: ViewModel = when {
             modelClass.isAssignableFrom(RootViewModel::class.java) -> RootViewModel(c.settings)
-            modelClass.isAssignableFrom(HomeViewModel::class.java) -> HomeViewModel(c.devices, c.transfers)
-            modelClass.isAssignableFrom(DevicesViewModel::class.java) -> DevicesViewModel(c.devices, c.settings)
+            modelClass.isAssignableFrom(HomeViewModel::class.java) -> HomeViewModel(c.devices, c.transfers, c.links)
+            modelClass.isAssignableFrom(DevicesViewModel::class.java) -> DevicesViewModel(c.devices, c.settings, c.links, c.discovery)
+            modelClass.isAssignableFrom(PairViewModel::class.java) -> PairViewModel(c.pairing)
             modelClass.isAssignableFrom(TransfersViewModel::class.java) -> TransfersViewModel(c.transfers)
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(c.settings)
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")

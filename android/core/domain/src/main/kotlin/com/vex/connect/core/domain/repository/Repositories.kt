@@ -16,6 +16,15 @@ interface SettingsRepository {
 
 interface DeviceRepository {
     val devices: Flow<List<PairedDevice>>
+    suspend fun snapshot(): List<PairedDevice>
+    suspend fun get(id: String): PairedDevice?
+    /** Adds the device, or replaces the one with the same id (pairing again after a removal). */
+    suspend fun upsert(device: PairedDevice)
+    suspend fun rename(id: String, name: String)
+    suspend fun remove(id: String)
+    suspend fun clearAll()
+    /** Records a successful contact: when, and where the PC answered. */
+    suspend fun touch(id: String, seenMillis: Long, address: String, port: Int)
 }
 
 interface TransferRepository {

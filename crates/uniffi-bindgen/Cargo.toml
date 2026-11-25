@@ -1,0 +1,9 @@
+[package]
+name = "uniffi-bindgen"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Generates the Kotlin bindings for vex-link-ffi (run by the Android CI job and scripts/android-native.sh)."
+
+[dependencies]
+uniffi = { version = "0.28", features = ["cli"] }

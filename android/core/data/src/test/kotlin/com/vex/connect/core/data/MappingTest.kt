@@ -20,6 +20,15 @@ class MappingTest {
     }
 
     @Test
+    fun pairingFieldsSurviveTheRoundTripBetweenEntityAndDomain() {
+        val d = com.vex.connect.core.domain.model.PairedDevice(
+            id = "id", name = "PC", kind = DeviceKind.Windows, pairedAtMillis = 3, lastSeenMillis = 4,
+            publicKeyHex = "aa", tlsFingerprintHex = "bb", lastAddress = "192.168.1.2", lastPort = 47821,
+        )
+        assertEquals(d, d.toEntity().toDomain())
+    }
+
+    @Test
     fun transferEntityMapsAndUnknownValuesAreSafe() {
         val t = TransferEntity(7, "PC", "a.jpg", 10, "Sent", "Completed", 1, 2).toDomain()
         assertEquals(TransferDirection.Sent, t.direction)
