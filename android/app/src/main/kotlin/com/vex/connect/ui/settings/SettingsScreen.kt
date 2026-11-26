@@ -116,14 +116,45 @@ fun SettingsScreen(factory: AppViewModelFactory, contentPadding: PaddingValues) 
                 }
             }
         }
+        item { SectionLabel("Diagnostics") }
+        item {
+            val crashes = remember { (context.applicationContext as com.vex.connect.VexConnectApp).container.crashes }
+            var report by remember { mutableStateOf(crashes.read()) }
+            VexCard {
+                if (report == null) {
+                    Text("No crash has been recorded.", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "If the app ever closes unexpectedly, the error is saved here so it can be copied and shared. It stays on this phone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VexTheme.extras.textDim,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                } else {
+                    Text("Last error report", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        report.orEmpty().take(4000),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier.padding(top = Spacing.sm),
+                    )
+                    Row(Modifier.fillMaxWidth().padding(top = Spacing.sm), horizontalArrangement = Arrangement.End) {
+                        VexTextButton("Copy", {
+                            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText("VEX Connect error report", report))
+                        })
+                        VexTextButton("Clear", { crashes.clear(); report = null })
+                    }
+                }
+            }
+        }
         item { SectionLabel("About") }
         item {
             VexCard {
-                SettingRow(title = "VEX Connect", subtitle = "Version $version · Stage 1: app foundation", icon = Icons.Rounded.Info)
+                SettingRow(title = "VEX Connect", subtitle = "Version $version · Stage 2: discovery and pairing", icon = Icons.Rounded.Info)
                 Divider()
                 SettingRow(
                     title = "Network access",
-                    subtitle = "This build does not request the Internet permission. It cannot connect to anything.",
+                    subtitle = "Talks only to PCs you paired, on your own Wi-Fi. No servers, no accounts, nothing is uploaded.",
                 )
             }
         }

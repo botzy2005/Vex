@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Discovery only tells the phone where a PC is. It never pairs and never trusts: the PC's name here is just a label, and
  * every connection is still checked against the keys and certificate saved at pairing. Runs only between [start] and [stop].
  */
-class NsdDiscovery(context: Context) {
+class NsdDiscovery(context: Context, private val onError: (Throwable) -> Unit = {}) {
     private val nsd = context.applicationContext.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val byInstance = LinkedHashMap<String, NearbyPc>()
     private val pending = ArrayDeque<NsdServiceInfo>()
@@ -39,16 +39,20 @@ class NsdDiscovery(context: Context) {
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                synchronized(this@NsdDiscovery) {
-                    pending.addLast(serviceInfo)
-                    pump()
+                guarded {
+                    synchronized(this@NsdDiscovery) {
+                        pending.addLast(serviceInfo)
+                        pump()
+                    }
                 }
             }
 
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
-                synchronized(this@NsdDiscovery) {
-                    byInstance.remove(serviceInfo.serviceName)
-                    publish()
+                guarded {
+                    synchronized(this@NsdDiscovery) {
+                        byInstance.remove(serviceInfo.serviceName)
+                        publish()
+                    }
                 }
             }
         }
@@ -81,17 +85,24 @@ class NsdDiscovery(context: Context) {
                 next,
                 object : NsdManager.ResolveListener {
                     override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                        synchronized(this@NsdDiscovery) {
-                            resolving = false
-                            pump()
+                        guarded {
+                            synchronized(this@NsdDiscovery) {
+                                resolving = false
+                                pump()
+                            }
                         }
                     }
 
                     override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                        synchronized(this@NsdDiscovery) {
-                            resolved(serviceInfo)
-                            resolving = false
-                            pump()
+                        guarded {
+                            synchronized(this@NsdDiscovery) {
+                                try {
+                                    resolved(serviceInfo)
+                                } finally {
+                                    resolving = false
+                                }
+                                pump()
+                            }
                         }
                     }
                 },
@@ -109,6 +120,18 @@ class NsdDiscovery(context: Context) {
         val name = attrs["n"]?.toString(Charsets.UTF_8)?.take(40)?.ifBlank { null } ?: info.serviceName
         byInstance[info.serviceName] = NearbyPc(id = id, name = name, host = host.hostAddress ?: return, port = info.port)
         publish()
+    }
+
+    /**
+     * Android calls these listeners on its own thread, where an exception would end the whole app. A bad announcement
+     * from the network must never do that: it is reported (Settings, Diagnostics) and the listing carries on.
+     */
+    private inline fun guarded(block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            onError(e)
+        }
     }
 
     private fun publish() {

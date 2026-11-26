@@ -11,6 +11,7 @@ import com.vex.connect.core.domain.model.TransferRecord
 import com.vex.connect.core.domain.model.ConnectionState
 import com.vex.connect.core.domain.model.DeviceLink
 import com.vex.connect.core.domain.model.LinkNotice
+import com.vex.connect.core.domain.model.NearbyPc
 import com.vex.connect.core.domain.model.PairingUi
 import com.vex.connect.core.domain.repository.DeviceRepository
 import com.vex.connect.core.domain.util.NearbyLabel
@@ -61,6 +62,21 @@ data class DevicesUiState(
     val notice: LinkNotice? = null,
 )
 
+/** Pure, so the empty cases (no PCs, nothing found, discovery unavailable) are unit-tested without Android. */
+fun buildDevicesState(
+    devices: List<PairedDevice>,
+    links: Map<String, DeviceLink>,
+    nearby: List<NearbyPc>,
+    phoneName: String?,
+    notice: LinkNotice?,
+    fingerprintOf: (PairedDevice) -> String,
+) = DevicesUiState(
+    rows = devices.map { DeviceRowState(it, links[it.id] ?: DeviceLink(), fingerprintOf(it)) },
+    nearby = labelNearby(nearby, devices.map { it.id }.toSet()),
+    phoneName = phoneName,
+    notice = notice,
+)
+
 class DevicesViewModel(
     devices: DeviceRepository,
     settings: SettingsRepository,
@@ -74,12 +90,7 @@ class DevicesViewModel(
         settings.settings,
         links.notice,
     ) { d, l, nearby, s, notice ->
-        DevicesUiState(
-            rows = d.map { DeviceRowState(it, l[it.id] ?: DeviceLink(), links.fingerprintOf(it)) },
-            nearby = labelNearby(nearby, d.map { it.id }.toSet()),
-            phoneName = s.deviceName,
-            notice = notice,
-        )
+        buildDevicesState(d, l, nearby, s.deviceName, notice, links::fingerprintOf)
     }.stateIn(viewModelScope, SHARE, DevicesUiState())
 
     fun rename(id: String, raw: String): Boolean {
