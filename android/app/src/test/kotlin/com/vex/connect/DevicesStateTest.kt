@@ -47,3 +47,41 @@ class DevicesStateTest {
         assertTrue(text.contains("uncaught exception"))
     }
 }
+
+/** The Devices list puts paired PCs and PCs found on the network in one lazy list: no two rows may share a key. */
+class DevicesKeysTest {
+    private val id = "9673f611a095b08f3e78bb3e801969b0"
+    private fun paired(id: String = this.id) = PairedDevice(id, "Desk PC", DeviceKind.Windows, 1L, null)
+    private fun nearby(id: String = this.id) = NearbyPc(id, "Desk PC", "192.168.1.2", 47821)
+
+    @Test fun aPairedPcThatIsAlsoAnnouncingKeepsBothRowsWithDistinctKeys() {
+        val s = buildDevicesState(listOf(paired()), emptyMap(), listOf(nearby()), null, null) { "fp" }
+        assertEquals(1, s.rows.size)
+        assertEquals(1, s.nearby.size)
+        assertTrue(s.nearby.single().paired)
+        val keys = com.vex.connect.ui.devices.devicesListKeys(s)
+        assertEquals(listOf("paired:$id", "nearby:$id"), keys)
+        assertEquals(keys.size, keys.toSet().size)
+    }
+
+    @Test fun duplicateIdsInEitherSourceCollapseToOneRow() {
+        val other = "f".repeat(32)
+        val s = buildDevicesState(
+            listOf(paired(), paired(), paired(other)),
+            emptyMap(),
+            listOf(nearby(), nearby(), nearby(other), nearby("0".repeat(32))),
+            null, null,
+        ) { "fp" }
+        assertEquals(listOf(id, other), s.rows.map { it.device.id })
+        assertEquals(3, s.nearby.size)
+        val keys = com.vex.connect.ui.devices.devicesListKeys(s)
+        assertEquals(keys.size, keys.toSet().size)
+    }
+
+    @Test fun noticeKeyCannotCollideWithADeviceKey() {
+        val n = com.vex.connect.core.domain.model.LinkNotice(7, "removed")
+        val s = buildDevicesState(listOf(paired("7")), emptyMap(), listOf(nearby("7")), null, n) { "fp" }
+        val keys = com.vex.connect.ui.devices.devicesListKeys(s)
+        assertEquals(keys.size, keys.toSet().size)
+    }
+}

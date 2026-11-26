@@ -40,6 +40,7 @@ import com.vex.connect.core.designsystem.theme.VexTheme
 import com.vex.connect.core.domain.model.LinkPhase
 import com.vex.connect.ui.AppViewModelFactory
 import com.vex.connect.ui.DeviceRowState
+import com.vex.connect.ui.DevicesUiState
 import com.vex.connect.ui.DevicesViewModel
 
 private sealed interface Dialog {
@@ -59,10 +60,47 @@ fun lastSeenText(lastSeenMillis: Long?, nowMillis: Long): String {
     }
 }
 
+/**
+ * Keys of the Devices list. Paired PCs and PCs found on the network are different rows of the SAME lazy list, and a paired
+ * PC that is also announcing itself legitimately appears in both with the same device id, so each row kind has its own
+ * namespace. (Using the bare id for both made Compose throw "Key ... was already used" when Devices opened.)
+ */
+fun pairedKey(deviceId: String) = "paired:$deviceId"
+fun nearbyKey(deviceId: String) = "nearby:$deviceId"
+fun noticeKey(noticeId: Long) = "notice:$noticeId"
+
+/** Every key the list will use for this state, in order. Used by the tests to prove they are unique. */
+fun devicesListKeys(state: DevicesUiState): List<String> =
+    listOfNotNull(state.notice?.let { noticeKey(it.id) }) +
+        state.rows.map { pairedKey(it.device.id) } +
+        state.nearby.map { nearbyKey(it.pc.id) }
+
 @Composable
 fun DevicesScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, onPair: () -> Unit) {
     val vm: DevicesViewModel = viewModel(factory = factory)
     val state by vm.state.collectAsStateWithLifecycle()
+    DevicesContent(
+        state = state,
+        contentPadding = contentPadding,
+        onPair = onPair,
+        onRename = vm::rename,
+        onToggle = { row -> if (row.link.held) vm.reconnect(row.device.id) else vm.disconnect(row.device.id) },
+        onRemove = { vm.remove(it.device.id) },
+        onDismissNotice = vm::dismissNotice,
+    )
+}
+
+/** The Devices screen without its ViewModel, so it can be shown (and tested) with any state. */
+@Composable
+fun DevicesContent(
+    state: DevicesUiState,
+    contentPadding: PaddingValues,
+    onPair: () -> Unit,
+    onRename: (id: String, name: String) -> Boolean,
+    onToggle: (DeviceRowState) -> Unit,
+    onRemove: (DeviceRowState) -> Unit,
+    onDismissNotice: (Long) -> Unit,
+) {
     var dialog by remember { mutableStateOf<Dialog?>(null) }
 
     LazyColumn(
@@ -76,10 +114,10 @@ fun DevicesScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, o
     ) {
         item { ScreenHeader("Devices", subtitle = "The PCs this phone trusts") }
         state.notice?.let { n ->
-            item(key = "notice-${n.id}") {
+            item(key = noticeKey(n.id)) {
                 VexCard {
                     Text(n.text, style = MaterialTheme.typography.bodyMedium)
-                    VexTextButton("Dismiss", { vm.dismissNotice(n.id) })
+                    VexTextButton("Dismiss", { onDismissNotice(n.id) })
                 }
             }
         }
@@ -112,11 +150,11 @@ fun DevicesScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, o
                 }
             }
         } else {
-            items(state.rows, key = { it.device.id }) { row ->
+            items(state.rows, key = { pairedKey(it.device.id) }) { row ->
                 DeviceCard(
                     row = row,
                     onRename = { dialog = Dialog.Rename(row) },
-                    onToggle = { if (row.link.held) vm.reconnect(row.device.id) else vm.disconnect(row.device.id) },
+                    onToggle = { onToggle(row) },
                     onRemove = { dialog = Dialog.Remove(row) },
                 )
             }
@@ -132,7 +170,7 @@ fun DevicesScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, o
                 )
             }
         } else {
-            items(state.nearby, key = { it.pc.id }) { n ->
+            items(state.nearby, key = { nearbyKey(it.pc.id) }) { n ->
                 VexCard {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         Icon(Icons.Rounded.Computer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -152,13 +190,13 @@ fun DevicesScreen(factory: AppViewModelFactory, contentPadding: PaddingValues, o
 
     when (val d = dialog) {
         is Dialog.Rename -> RenameDialog(d.row.device.name, onDismiss = { dialog = null }) { name ->
-            if (vm.rename(d.row.device.id, name)) dialog = null
+            if (onRename(d.row.device.id, name)) dialog = null
         }
         is Dialog.Remove -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("Remove ${d.row.device.name}?") },
             text = { Text("This phone will forget the PC, and the PC is told to forget this phone if it is connected. You will need to pair again to reconnect.") },
-            confirmButton = { VexTextButton("Remove", { vm.remove(d.row.device.id); dialog = null }) },
+            confirmButton = { VexTextButton("Remove", { onRemove(d.row); dialog = null }) },
             dismissButton = { VexTextButton("Cancel", { dialog = null }) },
         )
         null -> {}

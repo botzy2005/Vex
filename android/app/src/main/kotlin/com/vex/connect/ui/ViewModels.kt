@@ -71,8 +71,9 @@ fun buildDevicesState(
     notice: LinkNotice?,
     fingerprintOf: (PairedDevice) -> String,
 ) = DevicesUiState(
-    rows = devices.map { DeviceRowState(it, links[it.id] ?: DeviceLink(), fingerprintOf(it)) },
-    nearby = labelNearby(nearby, devices.map { it.id }.toSet()),
+    // One row per device id: two entries with the same id are the same device (ids are derived from the public key).
+    rows = devices.distinctBy { it.id }.map { DeviceRowState(it, links[it.id] ?: DeviceLink(), fingerprintOf(it)) },
+    nearby = labelNearby(nearby.distinctBy { it.id }, devices.map { it.id }.toSet()),
     phoneName = phoneName,
     notice = notice,
 )
