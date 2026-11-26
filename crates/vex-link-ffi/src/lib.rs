@@ -290,6 +290,9 @@ mod tests {
         let reader = FrameReader::new();
         let mut to_pc = vec![client.first_message()];
         let mut guard = 0;
+        // Only the very first frame of a connection carries the mode byte. Later frames are ciphertext, whose first byte
+        // can by chance be 'P' or 'S', so they must never be inspected for one (this test once did, and failed ~1 run in 50).
+        let mut first_frame = true;
         loop {
             guard += 1;
             assert!(guard < 20);
@@ -297,7 +300,12 @@ mod tests {
                 let r = FrameReader::new();
                 r.push(bytes);
                 let f = r.next().unwrap().unwrap();
-                let body = if let Some((_, hs)) = frame::split_mode(&f) { hs.to_vec() } else { f };
+                let body = if first_frame {
+                    first_frame = false;
+                    frame::split_mode(&f).expect("first frame has a mode byte").1.to_vec()
+                } else {
+                    f
+                };
                 for out in pc_side.handle(&body).unwrap() {
                     reader.push(wire(&out).unwrap());
                 }
